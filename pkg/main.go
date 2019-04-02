@@ -32,7 +32,7 @@ var (
 	logDir     = filepath.Join(appdir, "log")
 	confDir    = filepath.Join(appdir, "conf")
 	dataDir    = confDir
-	configFile = filepath.Join(confDir, "syncflux.conf")
+	configFile = filepath.Join(confDir, "syncflux.toml")
 )
 
 func writePIDFile() {

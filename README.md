@@ -2,7 +2,7 @@
 
 SyncFlux is an Open Source InfluxDB  Data syncronization and replication tool with HTTP API Interface which has as main goal recover lost data from any  handmade HA influxDB 1.X cluster ( made as any simple relay  https://github.com/influxdata/influxdb-relay )  
 
-For complete information on installation from binary package and configuration you could read the [synflux wiki](https://github.com/toni-moreno/syncflux/wiki).
+For complete information on installation from binary package and configuration you could read the [syncflux wiki](https://github.com/toni-moreno/syncflux/wiki).
 
 If you wish to compile from source code you can follow the next steps
 
@@ -49,11 +49,11 @@ go run build.go latest
 To execute without any configuration you need a minimal config.toml file on the conf directory.
 
 ```bash
-cp conf/sample.synflux.conf conf/synflux.conf
-./bin/synflux
+cp conf/sample.synflux.toml conf/syncflux.toml
+./bin/syncflux
 ```
 
-This will create a default user with username *adm1* and password *adm1pass* (don't forget to change them!).
+This will create a default user with username *admin* and password *admin* (don't forget to change them!).
 
 ### Recompile backend on source change (only for developers)
 
