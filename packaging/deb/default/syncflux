@@ -1,0 +1,17 @@
+SYNCFLUX_USER=syncflux
+
+SYNCFLUX_GROUP=syncflux
+
+SYNCFLUX_HOME=/usr/share/syncflux
+
+LOG_DIR=/var/log/syncflux
+
+DATA_DIR=/var/lib/syncflux
+
+MAX_OPEN_FILES=10000
+
+CONF_DIR=/etc/syncflux
+
+CONF_FILE=/etc/syncflux/synflux.conf
+
+RESTART_ON_UPGRADE=false

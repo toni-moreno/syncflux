@@ -1,0 +1,75 @@
+#!/bin/sh
+
+set -e
+
+[ -f /etc/sysconfig/syncflux ] && . /etc/sysconfig/syncflux
+
+startSyncflux() {
+  if [ -x /bin/systemctl ] ; then
+		/bin/systemctl start syncflux.service
+	elif [ -x /etc/init.d/syncflux ] ; then
+		/etc/init.d/syncflux start
+	elif [ -x /etc/rc.d/init.d/syncflux ] ; then
+		/etc/rc.d/init.d/syncflux start
+	fi
+}
+
+stopSyncflux() {
+	if [ -x /bin/systemctl ] ; then
+		/bin/systemctl stop syncflux.service > /dev/null 2>&1 || :
+	elif [ -x /etc/init.d/syncflux ] ; then
+		/etc/init.d/syncflux stop
+	elif [ -x /etc/rc.d/init.d/syncflux ] ; then
+		/etc/rc.d/init.d/syncflux stop
+	fi
+}
+
+# Initial installation: $1 == 1
+# Upgrade: $1 == 2, and configured to restart on upgrade
+if [ $1 -eq 1 ] ; then
+	[ -z "$SYNCFLUX_USER" ] && SYNCFLUX_USER="syncflux"
+	[ -z "$SYNCFLUX_GROUP" ] && SYNCFLUX_GROUP="syncflux"
+	if ! getent group "$SYNCFLUX_GROUP" > /dev/null 2>&1 ; then
+    groupadd -r "$SYNCFLUX_GROUP"
+	fi
+	if ! getent passwd "$SYNCFLUX_USER" > /dev/null 2>&1 ; then
+    useradd -r -g syncflux -d /usr/share/syncflux -s /sbin/nologin \
+    -c "syncflux user" syncflux
+	fi
+
+ 	# Set user permissions on /var/log/syncflux, /var/lib/syncflux
+	mkdir -p /var/log/syncflux /var/lib/syncflux
+	chown -R $SYNCFLUX_USER:$SYNCFLUX_GROUP /var/log/syncflux /var/lib/syncflux
+	chmod 755 /var/log/syncflux /var/lib/syncflux
+
+	# configuration files should not be modifiable by syncflux user, as this can be a security issue
+	chown -Rh root:$SYNCFLUX_GROUP /etc/syncflux/*
+	chmod 755 /etc/syncflux
+	find /etc/syncflux -type f -exec chmod 640 {} ';'
+	find /etc/syncflux -type d -exec chmod 755 {} ';'
+
+  if [ -x /bin/systemctl ] ; then
+    echo "### NOT starting on installation, please execute the following statements to configure syncflux to start automatically using systemd"
+    echo " sudo /bin/systemctl daemon-reload"
+    echo " sudo /bin/systemctl enable syncflux.service"
+    echo "### You can start syncflux by executing"
+    echo " sudo /bin/systemctl start syncflux.service"
+  elif [ -x /sbin/chkconfig ] ; then
+    echo "### NOT starting syncflux by default on bootup, please execute"
+    echo " sudo /sbin/chkconfig --add syncflux"
+    echo "### In order to start syncflux, execute"
+    echo " sudo service syncflux start"
+  fi
+elif [ $1 -ge 2 ] ; then
+  if [ -x /opt/syncflux/ ]; then
+    echo "### Upgrading Notice ### "
+    echo "-- New syncflux install home is /usr/share/syncflux"
+    #echo "-- Please move sqlite3 database to /var/lib/syncflux/"
+    echo "-- Notice: service name && binary changed to syncflux"
+  fi
+
+  if [ "$RESTART_ON_UPGRADE" == "true" ]; then
+    stopSyncflux
+    startSyncflux
+  fi
+fi

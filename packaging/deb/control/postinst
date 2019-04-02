@@ -1,0 +1,71 @@
+#!/bin/sh
+
+set -e
+
+[ -f /etc/default/syncflux ] && . /etc/default/syncflux
+
+startsyncflux() {
+  if [ -x /bin/systemctl ]; then
+    /bin/systemctl daemon-reload
+    /bin/systemctl restart syncflux
+	elif [ -x "/etc/init.d/syncflux" ]; then
+		if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+			invoke-rc.d syncflux restart || true
+		else
+			/etc/init.d/syncflux restart || true
+		fi
+	fi
+}
+
+case "$1" in
+	configure)
+	[ -z "$SYNCFLUX_USER" ] && SYNCFLUX_USER="syncflux"
+	[ -z "$SYNCFLUX_GROUP" ] && SYNCFLUX_GROUP="syncflux"
+	if ! getent group "$SYNCFLUX_GROUP" > /dev/null 2>&1 ; then
+	    addgroup --system "$SYNCFLUX_GROUP" --quiet
+	fi
+	if ! id $SYNCFLUX_USER > /dev/null 2>&1 ; then
+	    adduser --system --home /usr/share/syncflux --no-create-home \
+		--ingroup "$SYNCFLUX_GROUP" --disabled-password --shell /bin/false \
+		"$SYNCFLUX_USER"
+	fi
+
+  if [ -x /opt/syncflux/ ]; then
+    echo "### Upgrading Notice ### "
+    echo "-- New syncflux install home is /usr/share/syncflux"
+    #echo "-- Please move sqlite3 database to /var/lib/syncflux/"
+    echo "-- Notice: service name && binary changed to syncflux"
+  fi
+
+	# Set user permissions on /var/log/syncflux, /var/lib/syncflux
+	mkdir -p /var/log/syncflux /var/lib/syncflux
+	chown -R $SYNCFLUX_USER:$SYNCFLUX_GROUP /var/log/syncflux /var/lib/syncflux
+	chmod 755 /var/log/syncflux /var/lib/syncflux
+
+	# configuration files should not be modifiable by syncflux user, as this can be a security issue
+	chown -Rh root:$SYNCFLUX_GROUP /etc/syncflux/*
+	chmod 755 /etc/syncflux
+	find /etc/syncflux -type f -exec chmod 640 {} ';'
+	find /etc/syncflux -type d -exec chmod 755 {} ';'
+
+	# if $2 is set, this is an upgrade
+	if ( [ -n $2 ] && [ "$RESTART_ON_UPGRADE" = "true" ] ) ; then
+		startsyncflux
+	# this is a fresh installation
+	elif [ -z $2 ] ; then
+        if [ -x /bin/systemctl ] ; then
+            echo "### NOT starting on installation, please execute the following statements to configure syncflux to start automatically using systemd"
+            echo " sudo /bin/systemctl daemon-reload"
+            echo " sudo /bin/systemctl enable syncflux"
+            echo "### You can start syncflux by executing"
+            echo " sudo /bin/systemctl start syncflux"
+
+        elif [ -x /usr/sbin/update-rc.d ] ; then
+            echo "### NOT starting syncflux by default on bootup, please execute"
+            echo " sudo update-rc.d syncflux defaults 95 10"
+            echo "### In order to start syncflux, execute"
+            echo " sudo service syncflux start"
+        fi
+	fi
+	;;
+esac

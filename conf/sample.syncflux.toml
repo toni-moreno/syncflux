@@ -1,0 +1,34 @@
+# -*- toml -*-
+
+[General]
+ logdir = "./log"
+ loglevel = "debug"
+ sync-mode = "onlyslave" #could be both
+ slave-db = "influxdb02"
+ master-db = "influxdb01"
+ check-interval = "10s"
+ min-sync-interval = "120s"
+
+# InfluxDB 
+[http]
+ name = "example-http-influxdb"
+ bind-addr = "127.0.0.1:4096"
+ admin-user = "admin"
+ admin-passwd = "admin"
+ cookie-id = "mysupercokie"
+
+[[influxdb]]
+ release = "1x"
+ name = "influxdb01"
+ location = "http://127.0.0.1:8086/"
+ admin-user = "admin"
+ admin-passwd = "admin"
+ timeout = "10s"
+
+[[influxdb]]
+ release = "1x"
+ name = "influxdb02"
+ location = "http://127.0.0.1:8087/"
+ admin-user = "admin"
+ admin-passwd = "admin"
+ timeout = "10s"
