@@ -2,6 +2,7 @@ package webui
 
 import (
 	//"github.com/go-macaron/binding"
+	"github.com/toni-moreno/syncflux/pkg/agent"
 	"gopkg.in/macaron.v1"
 )
 
@@ -11,14 +12,21 @@ func NewAPI(m *macaron.Macaron) error {
 	//bind := binding.Bind
 
 	m.Group("/api/", func() {
-		m.Get("/health/:id" /*reqSignedIn,*/, Health)
+		m.Get("/health/" /*reqSignedIn,*/, HealthCluster)
+		m.Get("/health/:id" /*reqSignedIn,*/, HealthID)
 		m.Post("/action/:id", reqSignedIn, Action)
 	})
 
 	return nil
 }
 
-func Health(ctx *Context) {
+func HealthCluster(ctx *Context) {
+	log.Info("Doing Action")
+
+	ctx.JSON(200, agent.Cluster.GetStatus())
+}
+
+func HealthID(ctx *Context) {
 	log.Info("Doing Action")
 
 	ctx.JSON(200, "hola")

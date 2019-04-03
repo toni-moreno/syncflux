@@ -403,8 +403,8 @@ func SyncDBs(src *InfluxMonitor, dst *InfluxMonitor, stime time.Time, etime time
 
 				startsec := int(s_epoch.Seconds() + float64(i*3600))
 				endsec := int(s_epoch.Seconds() + float64((i+1)*3600))
+				log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints)
 
-				log.Infof("Processing Chunk from [%s] to [%s]")
 				for _, m := range measurements {
 					log.Infof("Processing measurement %s", m)
 

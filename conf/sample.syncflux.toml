@@ -8,6 +8,7 @@
  master-db = "influxdb01"
  check-interval = "10s"
  min-sync-interval = "120s"
+ initial-replication = none
 
 # InfluxDB 
 [http]

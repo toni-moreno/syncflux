@@ -110,12 +110,33 @@ func Start() {
 	}
 
 	if slaveFound && masterFound && masterAlive && slaveAlive {
-		Cluster = &HACluster{Master: MDB, Slave: SDB, CheckInterval: MainConfig.General.MinSyncInterval}
-		schema, _ := Cluster.ReplicateSchema()
-		Cluster.ReplicateData(schema)
+		Cluster = &HACluster{
+			Master:        MDB,
+			Slave:         SDB,
+			CheckInterval: MainConfig.General.MinSyncInterval,
+			ClusterState:  "OK",
+			SlaveStateOK:  true,
+			SlaveLastOK:   time.Now(),
+			MasterStateOK: true,
+			MasterLastOK:  time.Now(),
+		}
+		schema, _ := Cluster.GetSchema()
+
+		switch MainConfig.General.InitialReplication {
+		case "schema":
+			Cluster.ReplicateSchema(schema)
+		case "data":
+			Cluster.ReplicateData(schema)
+		case "both":
+			Cluster.ReplicateSchema(schema)
+			Cluster.ReplicateData(schema)
+		default:
+			log.Errorf("Unknown replication config %s", MainConfig.General.InitialReplication)
+		}
 
 		MDB.StartMonitor(&processWg)
 		SDB.StartMonitor(&processWg)
+		time.Sleep(MainConfig.General.CheckInterval)
 		Cluster.SuperVisor(&processWg)
 	} else {
 		if !slaveFound {
