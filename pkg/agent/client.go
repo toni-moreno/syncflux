@@ -5,36 +5,37 @@ import (
 	"strconv"
 
 	"encoding/json"
-	client "github.com/influxdata/influxdb1-client"
-	"net/url"
+	//client "github.com/influxdata/influxdb1-client/v2"
+	"github.com/influxdata/influxdb1-client/v2"
+	//"net/url"
 	"time"
 )
 
-func DBclient(location string, user string, pass string) (*client.Client, error) {
+func DBclient(location string, user string, pass string) (client.Client, error) {
 
 	//connect to database
-	u, err := url.Parse(location)
+	/*u, err := url.Parse(location)
 	if err != nil {
 		log.Printf("Fail to parse host and port of database %s, error: %s\n", location, err)
 		return nil, err
-	}
+	}*/
 
-	info := client.Config{
-		URL:       *u,
+	info := client.HTTPConfig{
+		Addr:      location,
 		Username:  user,
 		Password:  pass,
 		UserAgent: "syncflux-agent",
 	}
 
-	con, err2 := client.NewClient(info)
+	con, err2 := client.NewHTTPClient(info)
 	if err2 != nil {
 		log.Printf("Fail to build newclient to database %s, error: %s\n", location, err2)
 		return nil, err2
 	}
 
-	dur, ver, err3 := con.Ping()
-	if err != nil {
-		log.Printf("Fail to build newclient to database %s, error: %s\n", location, err2)
+	dur, ver, err3 := con.Ping(time.Duration(10) * time.Second)
+	if err3 != nil {
+		log.Printf("Fail to build newclient to database %s, error: %s\n", location, err3)
 		return nil, err3
 	}
 
@@ -68,7 +69,7 @@ type RetPol struct {
 	Def                bool
 }
 
-func CreateDB(con *client.Client, db string, rp *RetPol) error {
+func CreateDB(con client.Client, db string, rp *RetPol) error {
 
 	if db == "_internal" {
 		return nil
@@ -94,7 +95,7 @@ func CreateDB(con *client.Client, db string, rp *RetPol) error {
 	return nil
 }
 
-func CreateRP(con *client.Client, db string, rp *RetPol) error {
+func CreateRP(con client.Client, db string, rp *RetPol) error {
 
 	cmd := "CREATE RETENTION POLICY " + rp.Name + " ON " + db + " DURATION " + rp.Duration.String() + " REPLICATION " + strconv.FormatInt(rp.NReplicas, 10) + " SHARD DURATION " + rp.ShardGroupDuration.String()
 	if rp.Def {
@@ -119,7 +120,7 @@ func CreateRP(con *client.Client, db string, rp *RetPol) error {
 	return nil
 }
 
-func GetDataBases(con *client.Client) ([]string, error) {
+func GetDataBases(con client.Client) ([]string, error) {
 	databases := []string{}
 	q := client.Query{
 		Command:  "show databases",
@@ -146,7 +147,7 @@ func GetDataBases(con *client.Client) ([]string, error) {
 	return nil, nil
 }
 
-func GetRetentionPolicies(con *client.Client, db string) ([]*RetPol, error) {
+func GetRetentionPolicies(con client.Client, db string) ([]*RetPol, error) {
 	rparray := []*RetPol{}
 	q := client.Query{
 		Command:  "show retention policies on " + db,
@@ -196,7 +197,42 @@ func GetRetentionPolicies(con *client.Client, db string) ([]*RetPol, error) {
 	return rparray, nil
 }
 
-func GetMeasurements(c *client.Client, sdb string) []string {
+func GetFields(c client.Client, sdb string, meas string) map[string]string {
+	ret := make(map[string]string)
+
+	cmd := "show field keys from " + meas
+	//get measurements from database
+	q := client.Query{
+		Command:  cmd,
+		Database: sdb,
+	}
+
+	response, err := c.Query(q)
+	if err != nil {
+		log.Printf("Fail to get response from database, get measurements error: %s\n", err.Error())
+	}
+
+	res := response.Results
+
+	if len(res[0].Series) == 0 {
+		log.Printf("The response of database is null, get measurements error!\n")
+	} else {
+
+		values := res[0].Series[0].Values
+		//show progress of getting measurements
+		for _, row := range values {
+			fieldname := row[0].(string)
+			fieldtype := row[1].(string)
+			ret[fieldname] = fieldtype
+			log.Debugf("Detected Field [%s] type [%s] on measurement [%s]", fieldname, fieldtype, meas)
+		}
+
+	}
+
+	return ret
+}
+
+func GetMeasurements(c client.Client, sdb string) []string {
 
 	cmd := "show measurements"
 	//get measurements from database
@@ -235,16 +271,46 @@ func GetMeasurements(c *client.Client, sdb string) []string {
 
 }
 
-func ReadDB(c *client.Client, sdb, srp, ddb, drp, cmd string) client.BatchPoints {
+func UnixNano2Time(tstamp int64) (time.Time, error) {
+	sec := tstamp / 1000000000
+	nsec := tstamp % 1000000000
+	return time.Unix(sec, nsec), nil
+}
+
+func StrUnixNano2Time(tstamp string) (time.Time, error) {
+	i, err := strconv.ParseInt(tstamp, 10, 64)
+	if err != nil {
+		log.Errorf("Error on parse time [%s]", tstamp, err)
+		return time.Now(), err
+	}
+	sec := i / 1000000000
+	nsec := i % 1000000000
+	return time.Unix(sec, nsec), nil
+}
+
+func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string]string) (client.BatchPoints, int64) {
+	var totalpoints int64
+
+	totalpoints = 0
 
 	q := client.Query{
 		Command:         cmd,
 		Database:        sdb,
 		RetentionPolicy: srp,
+		Precision:       "ns",
 	}
 
-	//get type client.BatchPoints
-	var batchpoints client.BatchPoints
+	bpcfg := client.BatchPointsConfig{
+		Database:        ddb,
+		RetentionPolicy: drp,
+		Precision:       "ns",
+	}
+
+	batchpoints, err := client.NewBatchPoints(bpcfg)
+	if err != nil {
+		log.Error("Error on create BatchPoints: %s", err)
+		return batchpoints, 0
+	}
 
 	response, err := c.Query(q)
 	if err != nil {
@@ -256,50 +322,109 @@ func ReadDB(c *client.Client, sdb, srp, ddb, drp, cmd string) client.BatchPoints
 		log.Printf("The response of database is null, read database error!\n")
 	} else {
 
-		res_length := len(res)
-		for k := 0; k < res_length; k++ {
+		resLength := len(res)
+		for k := 0; k < resLength; k++ {
 
 			//show progress of reading series
 
 			for _, ser := range res[k].Series {
+				log.Debugf("ROW Result [%d] [%#+v]", k, ser)
 
-				//get type client.Point
-				var point client.Point
-
-				point.Measurement = ser.Name
-				point.Tags = ser.Tags
 				for _, v := range ser.Values {
-					point.Time, _ = time.Parse(time.RFC3339, v[0].(string))
+
+					var timestamp time.Time
+					var terr error
+
+					switch t := v[0].(type) {
+					case string:
+						timestamp, terr = StrUnixNano2Time(t)
+						if terr != nil {
+							log.Errorf("Error processing timestamp skipping point %d for measurements %s", k, ser.Name)
+							continue
+						}
+					case int64:
+						timestamp, terr = UnixNano2Time(t)
+						if terr != nil {
+							log.Errorf("Error processing timestamp skipping point %d for measurements %s", k, ser.Name)
+							continue
+						}
+					case json.Number:
+						i, _ := t.Int64()
+						timestamp, terr = UnixNano2Time(i)
+						if terr != nil {
+							log.Errorf("Error processing timestamp skipping point %d for measurements %s", k, ser.Name)
+							continue
+						}
+					default:
+						log.Warnf("Timestamp type is %T [%#+v]", t, t)
+						continue
+					}
 
 					field := make(map[string]interface{})
 					l := len(v)
 					for i := 1; i < l; i++ {
-						if v[i] != nil {
-							field[ser.Columns[i]] = v[i]
+						val := v[i]
+						if val != nil {
+							switch vt := val.(type) {
+							case json.Number:
+								tp := fieldmap[ser.Columns[i]]
+								switch tp {
+								case "float":
+									conv, err := vt.Float64()
+									if err != nil {
+										log.Errorf("Error on parse field %s data %#+v %T :%s", ser.Columns[i], val, vt, err)
+									}
+									field[ser.Columns[i]] = conv
+								case "integer":
+									conv, err := vt.Int64()
+									if err != nil {
+										log.Errorf("Error on parse field %s data %#+v %T :%s", ser.Columns[i], val, vt, err)
+									}
+									field[ser.Columns[i]] = conv
+								case "boolean":
+									fallthrough
+								case "string":
+									conv := vt.String()
+									field[ser.Columns[i]] = conv
+								default:
+									fmt.Printf("Unhandled type %s", tp)
+								}
+							case string, bool, int64, float64:
+								field[ser.Columns[i]] = v[i]
+							default:
+								//Supposed to be ok
+								fmt.Printf("Error unknown type %T on field %s don't know about type %T! value %#+v \n", vt, ser.Columns[i], vt)
+								field[ser.Columns[i]] = v[i]
+							}
+
 						}
 					}
-					point.Fields = field
-					point.Precision = "s"
-					batchpoints.Points = append(batchpoints.Points, point)
+					log.Debugf("POINT TIME  [%s] - NOW[%s] | MEAS: %s | TAGS: %#+v | FIELDS: %#+v| ", timestamp.String(), time.Now().String(), ser.Name, ser.Tags, field)
+					point, err := client.NewPoint(ser.Name, ser.Tags, field, timestamp)
+					if err != nil {
+						log.Errorf("Error in set point %s", err)
+						continue
+					}
+					batchpoints.AddPoint(point)
+					totalpoints++
 				}
-				time.Sleep(3 * time.Millisecond)
+
 			}
 		}
-		batchpoints.Database = ddb
-		batchpoints.RetentionPolicy = drp
+
 	}
-	return batchpoints
+	return batchpoints, totalpoints
 }
 
-func WriteDB(c *client.Client, b client.BatchPoints) {
+func WriteDB(c client.Client, b client.BatchPoints) {
 
-	_, err := c.Write(b)
+	err := c.Write(b)
 	if err != nil {
 		log.Printf("Fail to write to database, error: %s\n", err.Error())
 	}
 }
 
-func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol) error {
+func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, dbschema *InfluxSchDb) error {
 
 	var eEpoch, sEpoch time.Time
 	var hLength int64
@@ -329,7 +454,8 @@ func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol) e
 		//sync from newer to older data
 		endsec := eEpoch.Unix() - (i * 3600)
 		startsec := eEpoch.Unix() - ((i + 1) * 3600)
-		totalpoints := 0
+		var totalpoints int64
+		totalpoints = 0
 		for _, m := range measurements {
 			log.Infof("Processing measurement %s", m)
 
@@ -337,8 +463,7 @@ func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol) e
 
 			log.Debugf("processing Database %s Measurement %s from %d to %d", db, m, startsec, endsec)
 			getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-			batchpoints := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues)
-			np := len(batchpoints.Points)
+			batchpoints, np := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, dbschema.Ftypes[m])
 			totalpoints += np
 			log.Debugf("processed %d points", np)
 			WriteDB(dst.cli, batchpoints)
@@ -354,7 +479,7 @@ func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol) e
 	return nil
 }
 
-func SyncDBs(src *InfluxMonitor, dst *InfluxMonitor, stime time.Time, etime time.Time) error {
+func SyncDBs(src *InfluxMonitor, dst *InfluxMonitor, stime time.Time, etime time.Time, schema []*InfluxSchDb) error {
 
 	scon, err1 := DBclient(src.cfg.Location, src.cfg.AdminUser, src.cfg.AdminPasswd)
 	if err1 != nil {
@@ -369,29 +494,37 @@ func SyncDBs(src *InfluxMonitor, dst *InfluxMonitor, stime time.Time, etime time
 
 	template := "2006-01-02 15:04:05"
 
-	since_time, err_sin := time.Parse(template, "1970-01-01 00:00:00")
-	if err_sin != nil {
-		log.Println("Fail to parse since_time")
+	sinceTime, errSin := time.Parse(template, "1970-01-01 00:00:00")
+	if errSin != nil {
+		log.Println("Fail to parse sinceTime")
 	}
 
-	s_epoch := stime.Sub(since_time)
-	e_epoch := etime.Sub(since_time)
+	sEpoch := stime.Sub(sinceTime)
+	eEpoch := etime.Sub(sinceTime)
 
-	h_length := int(e_epoch.Hours()-s_epoch.Hours()) + 1
+	hLength := int64(eEpoch.Hours()-sEpoch.Hours()) + 1
 
 	//The datas which can be inputed is less than a year
-	if h_length > 8760 {
-		h_length = 8760
+	if hLength > 8760 {
+		hLength = 8760
 	}
 	dbarray, _ := GetDataBases(scon)
 
 	for _, db := range dbarray {
 		log.Infof("Processing Database %s", db)
 
+		var dbschema *InfluxSchDb
+
+		for _, k := range schema {
+			if k.Name == db {
+				dbschema = k
+			}
+		}
+
 		// Get Retention policies
 		rps, err := GetRetentionPolicies(scon, db)
 		if err != nil {
-			log.Errorf("Error on get Retention Policies on Database %s (%) : Error: %s", db, src.cfg.Name, src.cfg.Location, err)
+			log.Errorf("Error on get Retention Policies on Database %s (%s) %s : Error: %s", db, src.cfg.Name, src.cfg.Location, err)
 			continue
 		}
 
@@ -399,25 +532,32 @@ func SyncDBs(src *InfluxMonitor, dst *InfluxMonitor, stime time.Time, etime time
 
 			measurements := GetMeasurements(scon, db)
 
-			for i := 0; i < h_length; i++ {
+			var i int64
+			for i = 0; i < hLength; i++ {
 
-				startsec := int(s_epoch.Seconds() + float64(i*3600))
-				endsec := int(s_epoch.Seconds() + float64((i+1)*3600))
-				log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints)
-
+				startsec := int64(sEpoch.Seconds() + float64(i*3600))
+				endsec := int64(sEpoch.Seconds() + float64((i+1)*3600))
+				var totalpoints int64
+				totalpoints = 0
 				for _, m := range measurements {
-					log.Infof("Processing measurement %s", m)
+
+					fieldmap := dbschema.Ftypes[m]
+
+					log.Infof("Processing measurement %s with schema #%+v", m, fieldmap)
 
 					//write datas of every hour
 
 					log.Debugf("processing Database %s Measurement %s from %d to %d", db, m, startsec, endsec)
 					getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-					batchpoints := ReadDB(scon, db, rp.Name, db, rp.Name, getvalues)
-					log.Debugf("processed %d points", len(batchpoints.Points))
+					batchpoints, np := ReadDB(scon, db, rp.Name, db, rp.Name, getvalues, fieldmap)
+					totalpoints += np
+					log.Debugf("processed %d points", np)
 					WriteDB(dcon, batchpoints)
 
 					time.Sleep(time.Millisecond)
 				}
+				log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints)
+
 				time.Sleep(time.Millisecond)
 			}
 

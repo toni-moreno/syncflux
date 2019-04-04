@@ -2,12 +2,12 @@
 
 
 [[projects]]
-  digest = "1:e4c72127d910a96daf869a44f3dd563b86dbe6931a172863a0e99c5ff04b59e4"
+  digest = "1:fd61cf4ae1953d55df708acb6b91492d538f49c305b364a014049914495db426"
   name = "github.com/Sirupsen/logrus"
   packages = ["."]
   pruneopts = "UT"
-  revision = "dae0fa8d5b0c810a8ab733fbd5510c7cae84eca4"
-  version = "v1.4.0"
+  revision = "8bdbc7bcc01dcbb8ec23dc8a28e332258d25251f"
+  version = "v1.4.1"
 
 [[projects]]
   digest = "1:b67d9fb93495f20c1650448395a35d8c8a05cc1744bdd9986f5bc69d5d114f22"
@@ -78,15 +78,16 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a89cb8146ddad083ea0a446d5a3d82f244c4afa883851e06ac5d5af81968332b"
+  digest = "1:349f5c565b361db494f28a9c137bb74c21b07fbcf43f7ca171564be2de288d0f"
   name = "github.com/influxdata/influxdb1-client"
   packages = [
     ".",
     "models",
     "pkg/escape",
+    "v2",
   ]
   pruneopts = "UT"
-  revision = "16c852ea613fa2d42fcdccc9a8b0802a8bdc6140"
+  revision = "8ff2fc3824fcb533795f9a2f233275f0bb18d6c5"
 
 [[projects]]
   digest = "1:31e761d97c76151dde79e9d28964a812c46efc5baee4085b86f68f0c654450de"
@@ -113,12 +114,12 @@
   version = "v1.1.2"
 
 [[projects]]
-  digest = "1:95741de3af260a92cc5c7f3f3061e85273f5a81b5db20d4bd68da74bd521675e"
+  digest = "1:e0f50a07c0def90588d69f77178712c6fdc67eb6576365f551cce98b44b501bf"
   name = "github.com/pelletier/go-toml"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c01d1270ff3e442a8a57cddc1c92dc1138598194"
-  version = "v1.2.0"
+  revision = "63909f0a90ab0f36909e8e044e46ace10cf13ba2"
+  version = "v1.3.0"
 
 [[projects]]
   digest = "1:bb495ec276ab82d3dd08504bbc0594a65de8c3b22c6f2aaa92d05b73fbf3a82e"
@@ -165,25 +166,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:35ce874cf16f78a2da908ab28b0277497e36603d289db00d39da5200bc8ace08"
+  digest = "1:f92f6956e4059f6a3efc14924d2dd58ba90da25cc57fe07ae3779ef2f5e0c5f2"
   name = "golang.org/x/crypto"
-  packages = [
-    "pbkdf2",
-    "ssh/terminal",
-  ]
+  packages = ["pbkdf2"]
   pruneopts = "UT"
-  revision = "a5d413f7728c81fb97d96a2b722368945f651e78"
+  revision = "8e1b8d32e692162a446e97250c5d34f5a52efed6"
 
 [[projects]]
   branch = "master"
-  digest = "1:aa9254a749f8b6d34bfa7e422b9365f255d0e2457d4bb8d3de1e7b22d8b81410"
+  digest = "1:e18c1645adfe83d66f80d3676040e478895669f9456ca8bafa6a7290656c1b48"
   name = "golang.org/x/sys"
-  packages = [
-    "unix",
-    "windows",
-  ]
+  packages = ["unix"]
   pruneopts = "UT"
-  revision = "baf5eb976a8cd65845293cd814ea151018552292"
+  revision = "81d4e9dc473e5e8c933f2aaeba2a3d81efb9aed2"
 
 [[projects]]
   digest = "1:8029e9743749d4be5bc9f7d42ea1659471767860f0cdc34d37c3111bd308a295"
@@ -233,6 +228,7 @@
     "github.com/go-macaron/session",
     "github.com/go-macaron/toolbox",
     "github.com/influxdata/influxdb1-client",
+    "github.com/influxdata/influxdb1-client/v2",
     "github.com/spf13/viper",
     "gopkg.in/macaron.v1",
   ]

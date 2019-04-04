@@ -5,6 +5,13 @@ import (
 	"time"
 )
 
+type InfluxSchDb struct {
+	Name   string
+	DefRp  string
+	Rps    []*RetPol
+	Ftypes map[string]map[string]string
+}
+
 type HACluster struct {
 	Master        *InfluxMonitor
 	Slave         *InfluxMonitor
@@ -15,12 +22,7 @@ type HACluster struct {
 	MasterStateOK bool
 	MasterLastOK  time.Time
 	statsData     sync.RWMutex
-}
-
-type InfluxSchDb struct {
-	Name  string
-	DefRp string
-	Rps   []*RetPol
+	Schema        []*InfluxSchDb
 }
 
 type ClusterStatus struct {
@@ -73,11 +75,21 @@ func (hac *HACluster) GetSchema() ([]*InfluxSchDb, error) {
 			log.Errorf("Error on Create DB  %s on SlaveDB %s : Database has not default Retention Policy ", db, hac.Slave.cfg.Name)
 			continue
 		}
+
+		meas := GetMeasurements(hac.Master.cli, db)
+
+		mf := make(map[string]map[string]string, len(meas))
+
+		for _, m := range meas {
+			log.Debugf("discovered measurement  %s", m)
+			mf[m] = GetFields(hac.Master.cli, db, m)
+		}
 		//
-		schema = append(schema, &InfluxSchDb{Name: db, DefRp: defaultRp.Name, Rps: rps})
+		schema = append(schema, &InfluxSchDb{Name: db, DefRp: defaultRp.Name, Rps: rps, Ftypes: mf})
 
 		log.Infof("Replication Schema: DB %s OK", db)
 	}
+	hac.Schema = schema
 	return schema, nil
 }
 
@@ -175,9 +187,16 @@ func (hac *HACluster) ReplicateSchema() ([]*InfluxSchDb, error) {
 
 func (hac *HACluster) ReplicateData(schema []*InfluxSchDb) error {
 	for _, db := range schema {
+		var dbSch *InfluxSchDb
+		for _, sch := range schema {
+			if sch.Name == db.Name {
+				dbSch = sch
+			}
+			break
+		}
 		for _, rp := range db.Rps {
 			log.Infof("Replicating Data from DB %s RP %s....", db.Name, rp.Name)
-			SyncDBFull(hac.Master, hac.Slave, db.Name, rp)
+			SyncDBFull(hac.Master, hac.Slave, db.Name, rp, dbSch)
 		}
 	}
 	return nil
@@ -211,7 +230,7 @@ func (hac *HACluster) checkCluster() {
 		hac.ClusterState = "RECOVERING"
 		startTime := hac.SlaveLastOK.Add(-hac.CheckInterval)
 		endTime := lastOK
-		SyncDBs(hac.Master, hac.Slave, startTime, endTime)
+		SyncDBs(hac.Master, hac.Slave, startTime, endTime, hac.Schema)
 		hac.ClusterState = "OK"
 		hac.SlaveLastOK = lastOK
 	}
