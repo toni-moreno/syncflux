@@ -21,9 +21,9 @@ import (
 )
 
 var (
-	log        = logrus.New()
-	quit       = make(chan struct{})
-	startTime  = time.Now()
+	log  = logrus.New()
+	quit = make(chan struct{})
+	//startTime  = time.Now()
 	getversion bool
 	httpPort   = "0.0.0.0:4090"
 	appdir     = os.Getenv("PWD")
@@ -33,6 +33,13 @@ var (
 	confDir    = filepath.Join(appdir, "conf")
 	dataDir    = confDir
 	configFile = filepath.Join(confDir, "syncflux.toml")
+	//
+	action       = "hamonitor"
+	actiondb     = "all"
+	starttimestr string
+	starttime    = time.Now().Add(-3600)
+	endtimestr   string
+	endtime      = time.Now()
 )
 
 func writePIDFile() {
@@ -56,11 +63,18 @@ func writePIDFile() {
 func flags() *flag.FlagSet {
 	var f flag.FlagSet
 	f.BoolVar(&getversion, "version", getversion, "display the version")
+	//--------------------------------------------------------------
+	f.StringVar(&action, "action", action, "hamonitor(default),copy,move,replicateschema")
+	f.StringVar(&actiondb, "db", actiondb, "set the db where to play")
+	f.StringVar(&starttimestr, "start", starttimestr, "set the starttime to do action (no valid in hamonitor) default now-24h")
+	f.StringVar(&endtimestr, "end", endtimestr, "set the endtime do action (no valid in hamonitor) default now")
+	//--------------------------------------------------------------
 	f.StringVar(&configFile, "config", configFile, "config file")
 	f.StringVar(&logDir, "logs", logDir, "log directory")
 	f.StringVar(&homeDir, "home", homeDir, "home directory")
 	f.StringVar(&dataDir, "data", dataDir, "Data directory")
 	f.StringVar(&pidFile, "pidfile", pidFile, "path to pid file")
+	//---------------------------------------------------------------
 	f.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
 		f.VisitAll(func(flag *flag.Flag) {
@@ -116,22 +130,31 @@ func init() {
 
 	log.Infof("CFG :%+v", cfg)
 
-	if len(cfg.General.LogDir) > 0 {
+	if len(logDir) == 0 {
 		logDir = cfg.General.LogDir
+
+	}
+
+	if action == "hamonitor" {
 		os.Mkdir(logDir, 0755)
 		//Log output
-		f, _ := os.OpenFile(logDir+"/syncflux.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-		log.Out = f
+		file, _ := os.OpenFile(logDir+"/syncflux.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		log.Out = file
+		log.Infof("Set logdir %s from Config File", logDir)
 	}
+
 	if len(cfg.General.LogLevel) > 0 {
 		l, _ := logrus.ParseLevel(cfg.General.LogLevel)
 		log.Level = l
+		log.Infof("Set log level to  %s from Config File", cfg.General.LogLevel)
 	}
-	if len(cfg.General.DataDir) > 0 {
+	if len(dataDir) == 0 {
 		dataDir = cfg.General.DataDir
+		log.Infof("Set DataDir %s from Config File", dataDir)
 	}
-	if len(cfg.General.HomeDir) > 0 {
+	if len(homeDir) == 0 {
 		homeDir = cfg.General.HomeDir
+		log.Infof("Set HomeDir %s from Config File", homeDir)
 	}
 	//check if exist public dir in home
 	if _, err := os.Stat(filepath.Join(homeDir, "public")); err != nil {
@@ -179,8 +202,36 @@ func main() {
 		}
 	}()
 
-	agent.Start()
+	var err error
 
-	webui.WebServer(filepath.Join(homeDir, "public"), httpPort, &agent.MainConfig.HTTP, agent.MainConfig.General.InstanceID)
+	//parse input data
+
+	if len(endtimestr) > 0 {
+		endtime, err = parseInputTime(endtimestr)
+		if err != nil {
+			fmt.Printf("ERROR in Parse End Time : %s", err)
+			os.Exit(1)
+		}
+	}
+
+	if len(starttimestr) > 0 {
+		starttime, err = parseInputTime(starttimestr)
+		if err != nil {
+			fmt.Printf("ERROR in Parse End Time : %s", err)
+			os.Exit(1)
+		}
+	}
+
+	switch action {
+	case "hamonitor":
+		agent.HAMonitorStart()
+		webui.WebServer(filepath.Join(homeDir, "public"), httpPort, &agent.MainConfig.HTTP, agent.MainConfig.General.InstanceID)
+	case "copy":
+		agent.Copy(actiondb, starttime, endtime)
+	case "move":
+	case "replicateschema":
+	default:
+		fmt.Printf("Unknown action: %s", action)
+	}
 
 }

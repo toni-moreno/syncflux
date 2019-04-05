@@ -62,90 +62,113 @@ func SetLogger(l *logrus.Logger) {
 	log = l
 }
 
-// Reload Mutex Related Methods.
-
-// CheckAndSetReloadProcess sets the reloadProcess flag.
-// Returns its previous value.
-
-func init() {
-
-}
-
-func Start() {
-	log.Infof("Beginning Agent")
+func initCluster() *HACluster {
+	log.Infof("Initializing cluster")
 
 	var MDB *InfluxMonitor
 	var SDB *InfluxMonitor
 
-	slaveFound := false
-	masterAlive := true
-	masterFound := false
-	slaveAlive := true
+	for {
+		slaveFound := false
+		masterAlive := true
+		masterFound := false
+		slaveAlive := true
 
-	for _, idb := range MainConfig.InfluxArray {
-		if idb.Name == MainConfig.General.MasterDB {
-			masterFound = true
-			log.Infof("Found MasterDB in config File %+v", idb)
-			MDB = &InfluxMonitor{cfg: idb, CheckInterval: MainConfig.General.CheckInterval}
-			// cound
-			_, _, _, err := MDB.InitPing()
-			if err != nil {
-				masterAlive = false
-				log.Errorf("MasterDB has  problems :%s", err)
+		for _, idb := range MainConfig.InfluxArray {
+			if idb.Name == MainConfig.General.MasterDB {
+				masterFound = true
+				log.Infof("Found MasterDB in config File %+v", idb)
+				MDB = &InfluxMonitor{cfg: idb, CheckInterval: MainConfig.General.CheckInterval}
+
+				_, _, _, err := MDB.InitPing()
+				if err != nil {
+					masterAlive = false
+					log.Errorf("MasterDB has  problems :%s", err)
+				}
+
+			}
+			if idb.Name == MainConfig.General.SlaveDB {
+				slaveFound = true
+				log.Infof("Found SlaveDB in config File %+v", idb)
+				SDB = &InfluxMonitor{cfg: idb, CheckInterval: MainConfig.General.CheckInterval}
+
+				_, _, _, err := SDB.InitPing()
+				if err != nil {
+					slaveAlive = false
+					log.Errorf("SlaveDB has  problems :%s", err)
+				}
 			}
 
 		}
-		if idb.Name == MainConfig.General.SlaveDB {
-			slaveFound = true
-			log.Infof("Found SlaveDB in config File %+v", idb)
-			SDB = &InfluxMonitor{cfg: idb, CheckInterval: MainConfig.General.CheckInterval}
 
-			_, _, _, err := SDB.InitPing()
-			if err != nil {
-				slaveAlive = false
-				log.Errorf("SlaveDB has  problems :%s", err)
+		if slaveFound && masterFound && masterAlive && slaveAlive {
+			return &HACluster{
+				Master:        MDB,
+				Slave:         SDB,
+				CheckInterval: MainConfig.General.MinSyncInterval,
+				ClusterState:  "OK",
+				SlaveStateOK:  true,
+				SlaveLastOK:   time.Now(),
+				MasterStateOK: true,
+				MasterLastOK:  time.Now(),
+			}
+
+		} else {
+			if !slaveFound {
+				log.Errorf("No Slave DB  found, please check config and restart the process")
+			}
+			if !masterFound {
+				log.Errorf("No Master DB found, please check config and restart the process")
+			}
+			if !masterAlive {
+				log.Errorf("Master DB is not runing I should wait until both up to begin to chek sync status")
+			}
+			if !slaveAlive {
+				log.Errorf("Slave DB is not runing I should wait until both up to begin to chek sync status")
 			}
 		}
+		time.Sleep(MainConfig.General.MonitorRetryInterval)
+	}
+}
 
+func Copy(dbs string, start time.Time, end time.Time) {
+
+	Cluster = initCluster()
+
+	schema, _ := Cluster.GetSchema()
+	Cluster.ReplicateData(schema, start, end)
+
+}
+
+func HAMonitorStart() {
+
+	Cluster = initCluster()
+
+	schema, _ := Cluster.GetSchema()
+
+	switch MainConfig.General.InitialReplication {
+	case "schema":
+		log.Info("Replicating DB Schema from Master to Slave")
+		Cluster.ReplicateSchema(schema)
+	case "data":
+		log.Info("Replicating DATA Schema from Master to Slave")
+		Cluster.ReplicateDataFull(schema)
+	case "both":
+		log.Info("Replicating DB Schema from Master to Slave")
+		Cluster.ReplicateSchema(schema)
+		log.Info("Replicating DATA Schema from Master to Slave")
+		Cluster.ReplicateDataFull(schema)
+	case "none":
+		log.Info("No replication done")
+	default:
+		log.Errorf("Unknown replication config %s", MainConfig.General.InitialReplication)
 	}
 
-	if slaveFound && masterFound && masterAlive && slaveAlive {
-		Cluster = &HACluster{
-			Master:        MDB,
-			Slave:         SDB,
-			CheckInterval: MainConfig.General.MinSyncInterval,
-			ClusterState:  "OK",
-			SlaveStateOK:  true,
-			SlaveLastOK:   time.Now(),
-			MasterStateOK: true,
-			MasterLastOK:  time.Now(),
-		}
-		schema, _ := Cluster.GetSchema()
+	Cluster.Master.StartMonitor(&processWg)
+	Cluster.Slave.StartMonitor(&processWg)
+	time.Sleep(MainConfig.General.CheckInterval)
+	Cluster.SuperVisor(&processWg)
 
-		switch MainConfig.General.InitialReplication {
-		case "schema":
-			Cluster.ReplicateSchema(schema)
-		case "data":
-			Cluster.ReplicateData(schema)
-		case "both":
-			Cluster.ReplicateSchema(schema)
-			Cluster.ReplicateData(schema)
-		default:
-			log.Errorf("Unknown replication config %s", MainConfig.General.InitialReplication)
-		}
-
-		MDB.StartMonitor(&processWg)
-		SDB.StartMonitor(&processWg)
-		time.Sleep(MainConfig.General.CheckInterval)
-		Cluster.SuperVisor(&processWg)
-	} else {
-		if !slaveFound {
-			log.Errorf("No Slave DB  found")
-		}
-		if !masterFound {
-			log.Errorf("No Master DB found")
-		}
-	}
 }
 
 // End stops all devices polling.
@@ -153,8 +176,6 @@ func End() (time.Duration, error) {
 
 	start := time.Now()
 	log.Infof("END: begin device Gather processes stop... at %s", start.String())
-	// stop all device processes
-	log.Info("END: begin selfmon Gather processes stop...")
 
 	// wait until Done
 	processWg.Wait()

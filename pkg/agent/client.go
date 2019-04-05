@@ -215,7 +215,7 @@ func GetFields(c client.Client, sdb string, meas string) map[string]string {
 	res := response.Results
 
 	if len(res[0].Series) == 0 {
-		log.Printf("The response of database is null, get measurements error!\n")
+		log.Warnf("The response for Query is null, get Fields from  DB %s Measurement %s error!\n", sdb, meas)
 	} else {
 
 		values := res[0].Series[0].Values
@@ -253,7 +253,7 @@ func GetMeasurements(c client.Client, sdb string) []string {
 	res := response.Results
 
 	if len(res[0].Series) == 0 {
-		log.Printf("The response of database is null, get measurements error!\n")
+		log.Warnf(" Response for query is void, no measurements on DB %s", sdb)
 	} else {
 
 		values := res[0].Series[0].Values
@@ -314,12 +314,12 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 
 	response, err := c.Query(q)
 	if err != nil {
-		log.Printf("Fail to get response from database, read database error: %s\n", err.Error())
+		log.Warnf("Fail to get response from query %s, read database error: %s", cmd, err.Error())
 	}
 
 	res := response.Results
 	if len(res) == 0 {
-		log.Printf("The response of database is null, read database error!\n")
+		log.Warnf("The response of query [%s] is void, read database error!\n", cmd)
 	} else {
 
 		resLength := len(res)
@@ -328,7 +328,7 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 			//show progress of reading series
 
 			for _, ser := range res[k].Series {
-				log.Debugf("ROW Result [%d] [%#+v]", k, ser)
+				log.Tracef("ROW Result [%d] [%#+v]", k, ser)
 
 				for _, v := range ser.Values {
 
@@ -387,19 +387,19 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 									conv := vt.String()
 									field[ser.Columns[i]] = conv
 								default:
-									fmt.Printf("Unhandled type %s", tp)
+									log.Warnf("Unhandled type %s in field %s measuerment %s", tp, ser.Columns[i], ser.Name)
 								}
 							case string, bool, int64, float64:
 								field[ser.Columns[i]] = v[i]
 							default:
 								//Supposed to be ok
-								fmt.Printf("Error unknown type %T on field %s don't know about type %T! value %#+v \n", vt, ser.Columns[i], vt)
+								log.Warnf("Error unknown type %T on field %s don't know about type %T! value %#+v \n", vt, ser.Columns[i], vt)
 								field[ser.Columns[i]] = v[i]
 							}
 
 						}
 					}
-					log.Debugf("POINT TIME  [%s] - NOW[%s] | MEAS: %s | TAGS: %#+v | FIELDS: %#+v| ", timestamp.String(), time.Now().String(), ser.Name, ser.Tags, field)
+					log.Tracef("POINT TIME  [%s] - NOW[%s] | MEAS: %s | TAGS: %#+v | FIELDS: %#+v| ", timestamp.String(), time.Now().String(), ser.Name, ser.Tags, field)
 					point, err := client.NewPoint(ser.Name, ser.Tags, field, timestamp)
 					if err != nil {
 						log.Errorf("Error in set point %s", err)
@@ -447,7 +447,6 @@ func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, d
 		hLength = 8760
 	}
 
-	measurements := GetMeasurements(src.cli, db)
 	var i int64
 	for i = 0; i < hLength; i++ {
 
@@ -456,26 +455,73 @@ func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, d
 		startsec := eEpoch.Unix() - ((i + 1) * 3600)
 		var totalpoints int64
 		totalpoints = 0
-		for _, m := range measurements {
-			log.Infof("Processing measurement %s", m)
+		for m, sch := range dbschema.Ftypes {
+
+			log.Debugf("Processing measurement %s with schema #%+v", m, sch)
 
 			//write datas of every hour
 
 			log.Debugf("processing Database %s Measurement %s from %d to %d", db, m, startsec, endsec)
 			getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-			batchpoints, np := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, dbschema.Ftypes[m])
+			batchpoints, np := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, sch)
 			totalpoints += np
 			log.Debugf("processed %d points", np)
 			WriteDB(dst.cli, batchpoints)
 
-			time.Sleep(time.Millisecond)
 		}
 		log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints)
 
-		time.Sleep(time.Millisecond)
 	}
 
-	log.Printf("Move data from %s to %s has done!\n", src.cfg.Name, dst.cfg.Name)
+	log.Printf("Copy data from %s[%s|%s] to %s[%s|%s] has done!\n", src.cfg.Name, db, rp.Name, dst.cfg.Name, db, rp.Name)
+	return nil
+}
+
+func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb) error {
+
+	if dbschema == nil {
+		err := fmt.Errorf("DBSChema for DB %s is null", db)
+		log.Errorf("%s", err.Error())
+		return err
+	}
+	var hLength int64
+
+	duration := eEpoch.Sub(sEpoch)
+
+	hLength = int64(duration.Hours()) + 1
+
+	if hLength > 8760 {
+		hLength = 8760
+	}
+
+	var i int64
+	for i = 0; i < hLength; i++ {
+
+		//sync from newer to older data
+		endsec := eEpoch.Unix() - (i * 3600)
+		startsec := eEpoch.Unix() - ((i + 1) * 3600)
+		var totalpoints int64
+		totalpoints = 0
+		for m, sch := range dbschema.Ftypes {
+			log.Debugf("Processing measurement %s from DB  %s", m, db)
+			log.Tracef("Processing measurement %s with schema #%+v", m, sch)
+
+			//write datas of every hour
+
+			log.Debugf("processing Database %s Measurement %s from %d to %d", db, m, startsec, endsec)
+			getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
+			batchpoints, np := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, sch)
+			totalpoints += np
+			log.Debugf("processed %d points", np)
+			WriteDB(dst.cli, batchpoints)
+
+		}
+		log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints)
+
+	}
+
+	log.Printf("Copy data from %s[%s|%s] to %s[%s|%s] has done!\n", src.cfg.Name, db, rp.Name, dst.cfg.Name, db, rp.Name)
+
 	return nil
 }
 
@@ -543,7 +589,7 @@ func SyncDBs(src *InfluxMonitor, dst *InfluxMonitor, stime time.Time, etime time
 
 					fieldmap := dbschema.Ftypes[m]
 
-					log.Infof("Processing measurement %s with schema #%+v", m, fieldmap)
+					log.Debugf("Processing measurement %s with schema #%+v", m, fieldmap)
 
 					//write datas of every hour
 
@@ -559,12 +605,14 @@ func SyncDBs(src *InfluxMonitor, dst *InfluxMonitor, stime time.Time, etime time
 				log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints)
 
 				time.Sleep(time.Millisecond)
+
 			}
+			log.Printf("Copy data from %s[%s|%s] to %s[%s|%s] has done!\n", src.cfg.Name, db, rp.Name, dst.cfg.Name, db, rp.Name)
 
 		}
 
 	}
 
-	log.Printf("Move data from %s to %s has done!\n", src.cfg.Name, dst.cfg.Name)
+	log.Printf("Copy data from %s to %s has done!\n", src.cfg.Name, dst.cfg.Name)
 	return nil
 }

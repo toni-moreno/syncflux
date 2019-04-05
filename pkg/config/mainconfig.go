@@ -6,17 +6,18 @@ import (
 
 // GeneralConfig has miscellaneous configuration options
 type GeneralConfig struct {
-	InstanceID         string        `mapstructure:"instanceID"`
-	LogDir             string        `mapstructure:"logdir"`
-	HomeDir            string        `mapstructure:"homedir"`
-	DataDir            string        `mapstructure:"datadir"`
-	LogLevel           string        `mapstructure:"loglevel"`
-	SyncMode           string        `mapstructure:"sync-mode"`
-	CheckInterval      time.Duration `mapstructure:"check-interval"`
-	MinSyncInterval    time.Duration `mapstructure:"min-sync-interval"`
-	MasterDB           string        `mapstructure:"master-db"`
-	SlaveDB            string        `mapstructure:"slave-db"`
-	InitialReplication string        `mapstructure:"initial-replication"`
+	InstanceID           string        `mapstructure:"instanceID"`
+	LogDir               string        `mapstructure:"logdir"`
+	HomeDir              string        `mapstructure:"homedir"`
+	DataDir              string        `mapstructure:"datadir"`
+	LogLevel             string        `mapstructure:"loglevel"`
+	SyncMode             string        `mapstructure:"sync-mode"`
+	CheckInterval        time.Duration `mapstructure:"check-interval"`
+	MinSyncInterval      time.Duration `mapstructure:"min-sync-interval"`
+	MasterDB             string        `mapstructure:"master-db"`
+	SlaveDB              string        `mapstructure:"slave-db"`
+	InitialReplication   string        `mapstructure:"initial-replication"`
+	MonitorRetryInterval time.Duration `mapstructure:"monitor-retry-interval"`
 }
 
 //SelfMonConfig configuration for self monitoring
