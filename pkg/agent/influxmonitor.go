@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -18,6 +19,8 @@ type InfluxMonitor struct {
 	PingDuration      time.Duration
 	statsData         sync.RWMutex
 	cli               client.Client
+	lastcli           client.Client
+	climutex          sync.RWMutex
 }
 
 func (im *InfluxMonitor) setStatError() {
@@ -44,14 +47,6 @@ func (im *InfluxMonitor) GetState() (bool, time.Time, time.Duration) {
 
 func (im *InfluxMonitor) InitPing() (client.Client, time.Duration, string, error) {
 
-	//connect to database
-
-	/*u, err := url.Parse(im.cfg.Location)
-	if err != nil {
-		log.Errorf("Fail to parse host and port of database %s, error: %s\n", im.cfg.Location, err)
-		return nil, 0, "", err
-	}*/
-
 	info := client.HTTPConfig{
 		Addr:     im.cfg.Location,
 		Username: im.cfg.AdminUser,
@@ -65,12 +60,11 @@ func (im *InfluxMonitor) InitPing() (client.Client, time.Duration, string, error
 		return nil, 0, "", err2
 	}
 
-	dur, ver, err3 := con.Ping(time.Duration(10) * time.Second)
+	dur, ver, err3 := con.Ping(im.cfg.Timeout)
 	if err3 != nil {
 		log.Errorf("Fail to build newclient to database %s, error: %s\n", im.cfg.Location, err3)
 		return nil, 0, "", err3
 	}
-	//log.Debugf("%s", dur.String())
 
 	q := client.Query{
 		Command:  "show databases",
@@ -80,7 +74,7 @@ func (im *InfluxMonitor) InitPing() (client.Client, time.Duration, string, error
 	response, err4 := con.Query(q)
 	if err4 == nil && response.Error() == nil {
 		log.Debugf("SHOW DATABASES: %+v", response.Results)
-		im.cli = con
+		im.lastcli = con
 		return con, dur, ver, nil
 	} else {
 		if err4 != nil {
@@ -94,8 +88,64 @@ func (im *InfluxMonitor) InitPing() (client.Client, time.Duration, string, error
 
 	}
 	log.Debugf("SHOW DATABASES: %+v", response.Results)
-	im.cli = con
+	im.lastcli = con
 	return con, dur, ver, nil
+}
+
+func (im *InfluxMonitor) SetCli(cli client.Client) {
+	im.climutex.Lock()
+	defer im.climutex.Unlock()
+	im.cli = cli
+}
+
+func (im *InfluxMonitor) GetCli() client.Client {
+	im.climutex.RLock()
+	defer im.climutex.RUnlock()
+	return im.cli
+}
+
+func (im *InfluxMonitor) UpdateCli() client.Client {
+	im.climutex.RLock()
+	defer im.climutex.RUnlock()
+	im.cli = im.lastcli
+	return im.cli
+}
+
+func (im *InfluxMonitor) Ping() (time.Duration, string, error) {
+
+	cli := im.GetCli()
+	if cli == nil {
+		return 0, "", fmt.Errorf("can not ping database, the client is not initialized")
+	}
+
+	dur, ver, err3 := cli.Ping(im.cfg.Timeout)
+	if err3 != nil {
+		log.Errorf("Fail to build newclient to database %s, error: %s\n", im.cfg.Location, err3)
+		return 0, "", err3
+	}
+
+	q := client.Query{
+		Command:  "show databases",
+		Database: "",
+	}
+
+	response, err4 := cli.Query(q)
+	if err4 == nil && response.Error() == nil {
+		log.Debugf("SHOW DATABASES: %+v", response.Results)
+		return dur, ver, nil
+	} else {
+		if err4 != nil {
+			//			log.Warnf(" ERR4: %s", err4)
+			return dur, ver, err4
+		}
+		if response.Error() != nil {
+			//			log.Warnf("Response Error not null: ERR %s", response.Error())
+			return dur, ver, response.Error()
+		}
+
+	}
+	log.Debugf("SHOW DATABASES: %+v", response.Results)
+	return dur, ver, nil
 }
 
 func (im *InfluxMonitor) GetStat() {

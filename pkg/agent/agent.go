@@ -80,23 +80,24 @@ func initCluster() *HACluster {
 				log.Infof("Found MasterDB in config File %+v", idb)
 				MDB = &InfluxMonitor{cfg: idb, CheckInterval: MainConfig.General.CheckInterval}
 
-				_, _, _, err := MDB.InitPing()
+				cli, _, _, err := MDB.InitPing()
 				if err != nil {
 					masterAlive = false
 					log.Errorf("MasterDB has  problems :%s", err)
 				}
-
+				MDB.SetCli(cli)
 			}
 			if idb.Name == MainConfig.General.SlaveDB {
 				slaveFound = true
 				log.Infof("Found SlaveDB in config File %+v", idb)
 				SDB = &InfluxMonitor{cfg: idb, CheckInterval: MainConfig.General.CheckInterval}
 
-				_, _, _, err := SDB.InitPing()
+				cli, _, _, err := SDB.InitPing()
 				if err != nil {
 					slaveAlive = false
 					log.Errorf("SlaveDB has  problems :%s", err)
 				}
+				SDB.SetCli(cli)
 			}
 
 		}
@@ -136,7 +137,10 @@ func Copy(dbs string, start time.Time, end time.Time) {
 	Cluster = initCluster()
 
 	schema, _ := Cluster.GetSchema()
+	s := time.Now()
 	Cluster.ReplicateData(schema, start, end)
+	elapsed := time.Since(s)
+	log.Infof("Copy take: %s", elapsed.String())
 
 }
 

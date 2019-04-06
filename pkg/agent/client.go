@@ -525,6 +525,7 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEp
 	return nil
 }
 
+/*
 func SyncDBs(src *InfluxMonitor, dst *InfluxMonitor, stime time.Time, etime time.Time, schema []*InfluxSchDb) error {
 
 	scon, err1 := DBclient(src.cfg.Location, src.cfg.AdminUser, src.cfg.AdminPasswd)
@@ -615,4 +616,4 @@ func SyncDBs(src *InfluxMonitor, dst *InfluxMonitor, stime time.Time, etime time
 
 	log.Printf("Copy data from %s to %s has done!\n", src.cfg.Name, dst.cfg.Name)
 	return nil
-}
+}*/

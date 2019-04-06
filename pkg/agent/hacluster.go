@@ -201,12 +201,15 @@ func (hac *HACluster) checkCluster() {
 		startTime := hac.SlaveLastOK.Add(-hac.CheckInterval)
 		endTime := lastslOK
 
+		// after conection recover with de database the
+		// the client should be updated before any connection test
+		hac.Slave.UpdateCli()
+		// begin recover
 		start := time.Now()
 		hac.ReplicateData(hac.Schema, startTime, endTime)
-		//SyncDBs(hac.Master, hac.Slave, startTime, endTime, hac.Schema)
-
 		elapsed := time.Since(start)
 		log.Printf("Recovering Took %s", elapsed.String())
+
 		hac.statsData.Lock()
 		hac.ClusterState = "OK"
 		hac.ClusterNumRecovers++
