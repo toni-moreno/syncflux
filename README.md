@@ -28,8 +28,7 @@ go get -d github.com/toni-moreno/syncflux/...
 
 ```bash
 cd $GOPATH/src/github.com/toni-moreno/syncflux
-go run build.go setup            # only needed once to install godep
-godep restore                    # will pull down all golang lib dependencies in your current GOPATH
+go run build.go build           
 ```
 
 ### Creating minimal package tar.gz
@@ -67,7 +66,7 @@ bra run
 ```
 will init a change autodetect webserver with angular-cli (ng serve) and also a autodetect and recompile process with bra for the backend
 
-## Basic Use 
+## Basic Usage
 
 ### set config file
 
