@@ -27,14 +27,16 @@ var (
 	getversion bool
 	httpPort   = "0.0.0.0:4090"
 	appdir     = os.Getenv("PWD")
-	homeDir    string
-	pidFile    string
-	logDir     = filepath.Join(appdir, "log")
-	confDir    = filepath.Join(appdir, "conf")
-	dataDir    = confDir
+	//homeDir    string
+	pidFile string
+	logDir  = filepath.Join(appdir, "log")
+	confDir = filepath.Join(appdir, "conf")
+	//dataDir    = confDir
 	configFile = filepath.Join(confDir, "syncflux.toml")
 	//
 	action       = "hamonitor"
+	master       string
+	slave        string
 	actiondb     = "all"
 	starttimestr string
 	starttime    = time.Now().Add(-3600)
@@ -65,14 +67,16 @@ func flags() *flag.FlagSet {
 	f.BoolVar(&getversion, "version", getversion, "display the version")
 	//--------------------------------------------------------------
 	f.StringVar(&action, "action", action, "hamonitor(default),copy,move,replicateschema")
+	f.StringVar(&master, "master", master, "choose master ID from all those in the config file where to get data (override the master-db parameter in the config file)")
+	f.StringVar(&slave, "slave", slave, "choose master ID from all those in the config file where to write data (override the slave-db parameter in the config file)")
 	f.StringVar(&actiondb, "db", actiondb, "set the db where to play")
 	f.StringVar(&starttimestr, "start", starttimestr, "set the starttime to do action (no valid in hamonitor) default now-24h")
 	f.StringVar(&endtimestr, "end", endtimestr, "set the endtime do action (no valid in hamonitor) default now")
 	//--------------------------------------------------------------
 	f.StringVar(&configFile, "config", configFile, "config file")
 	f.StringVar(&logDir, "logs", logDir, "log directory")
-	f.StringVar(&homeDir, "home", homeDir, "home directory")
-	f.StringVar(&dataDir, "data", dataDir, "Data directory")
+	//f.StringVar(&homeDir, "home", homeDir, "home directory")
+	//f.StringVar(&dataDir, "data", dataDir, "Data directory")
 	f.StringVar(&pidFile, "pidfile", pidFile, "path to pid file")
 	//---------------------------------------------------------------
 	f.Usage = func() {
@@ -132,7 +136,7 @@ func init() {
 
 	if len(logDir) == 0 {
 		logDir = cfg.General.LogDir
-
+		log.Infof("Set logdir %s from Command Line parameter", logDir)
 	}
 
 	if action == "hamonitor" {
@@ -140,7 +144,17 @@ func init() {
 		//Log output
 		file, _ := os.OpenFile(logDir+"/syncflux.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 		log.Out = file
-		log.Infof("Set logdir %s from Config File", logDir)
+
+	}
+
+	if len(master) == 0 {
+		master = cfg.General.MasterDB
+		log.Infof("Set Master DB %s from Command Line parameters", master)
+	}
+
+	if len(slave) == 0 {
+		slave = cfg.General.SlaveDB
+		log.Infof("Set Slave DB %s from Command Line parameters", slave)
 	}
 
 	if len(cfg.General.LogLevel) > 0 {
@@ -148,24 +162,25 @@ func init() {
 		log.Level = l
 		log.Infof("Set log level to  %s from Config File", cfg.General.LogLevel)
 	}
-	if len(dataDir) == 0 {
+	/*if len(dataDir) == 0 {
 		dataDir = cfg.General.DataDir
-		log.Infof("Set DataDir %s from Config File", dataDir)
+		log.Infof("Set DataDir %s from Command Line parameters", dataDir)
 	}
 	if len(homeDir) == 0 {
 		homeDir = cfg.General.HomeDir
-		log.Infof("Set HomeDir %s from Config File", homeDir)
-	}
+		log.Infof("Set HomeDir %s from Command Line parameters", homeDir)
+	}*
 	//check if exist public dir in home
 	if _, err := os.Stat(filepath.Join(homeDir, "public")); err != nil {
 		log.Warnf("There is no public (www) directory on [%s] directory", homeDir)
 		if len(homeDir) == 0 {
 			homeDir = appdir
 		}
-	}
+	}*/
 	//needed to create SQLDB when SQLite and debug log
 	config.SetLogger(log)
-	config.SetDirs(dataDir, logDir, confDir)
+	config.SetLogDir(logDir)
+	//config.SetDirs(dataDir, logDir, confDir)
 
 	webui.SetLogger(log)
 	webui.SetLogDir(logDir)
@@ -173,7 +188,7 @@ func init() {
 	agent.SetLogger(log)
 
 	//
-	log.Infof("Set Default directories : \n   - Exec: %s\n   - Config: %s\n   -Logs: %s\n -Home: %s\n", appdir, confDir, logDir, homeDir)
+	log.Infof("Set Default directories : \n   - Exec: %s\n   - Config: %s\n   -Logs: %s\n", appdir, confDir, logDir)
 }
 
 func main() {
@@ -224,10 +239,10 @@ func main() {
 
 	switch action {
 	case "hamonitor":
-		agent.HAMonitorStart()
-		webui.WebServer(filepath.Join(homeDir, "public"), httpPort, &agent.MainConfig.HTTP, agent.MainConfig.General.InstanceID)
+		agent.HAMonitorStart(master, slave)
+		webui.WebServer("", httpPort, &agent.MainConfig.HTTP, agent.MainConfig.General.InstanceID)
 	case "copy":
-		agent.Copy(actiondb, starttime, endtime)
+		agent.Copy(master, slave, actiondb, starttime, endtime)
 	case "move":
 	case "replicateschema":
 	default:

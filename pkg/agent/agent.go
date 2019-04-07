@@ -62,7 +62,15 @@ func SetLogger(l *logrus.Logger) {
 	log = l
 }
 
-func initCluster() *HACluster {
+func initCluster(master string, slave string) *HACluster {
+
+	if len(master) == 0 {
+		master = MainConfig.General.MasterDB
+	}
+	if len(slave) == 0 {
+		slave = MainConfig.General.SlaveDB
+	}
+
 	log.Infof("Initializing cluster")
 
 	var MDB *InfluxMonitor
@@ -75,27 +83,27 @@ func initCluster() *HACluster {
 		slaveAlive := true
 
 		for _, idb := range MainConfig.InfluxArray {
-			if idb.Name == MainConfig.General.MasterDB {
+			if idb.Name == master {
 				masterFound = true
-				log.Infof("Found MasterDB in config File %+v", idb)
+				log.Infof("Found MasterDB[%s] in config File %+v", master, idb)
 				MDB = &InfluxMonitor{cfg: idb, CheckInterval: MainConfig.General.CheckInterval}
 
 				cli, _, _, err := MDB.InitPing()
 				if err != nil {
 					masterAlive = false
-					log.Errorf("MasterDB has  problems :%s", err)
+					log.Errorf("MasterDB[%s] has  problems :%s", master, err)
 				}
 				MDB.SetCli(cli)
 			}
-			if idb.Name == MainConfig.General.SlaveDB {
+			if idb.Name == slave {
 				slaveFound = true
-				log.Infof("Found SlaveDB in config File %+v", idb)
+				log.Infof("Found SlaveDB[%s] in config File %+v", slave, idb)
 				SDB = &InfluxMonitor{cfg: idb, CheckInterval: MainConfig.General.CheckInterval}
 
 				cli, _, _, err := SDB.InitPing()
 				if err != nil {
 					slaveAlive = false
-					log.Errorf("SlaveDB has  problems :%s", err)
+					log.Errorf("SlaveDB[%s] has  problems :%s", slave, err)
 				}
 				SDB.SetCli(cli)
 			}
@@ -132,11 +140,15 @@ func initCluster() *HACluster {
 	}
 }
 
-func Copy(dbs string, start time.Time, end time.Time) {
+func Copy(master string, slave string, dbs string, start time.Time, end time.Time) {
 
-	Cluster = initCluster()
+	Cluster = initCluster(master, slave)
 
-	schema, _ := Cluster.GetSchema()
+	schema, err := Cluster.GetSchema(dbs)
+	if err != nil {
+		log.Errorf("Can not copy data , error on get Schema: %s", err)
+		return
+	}
 	s := time.Now()
 	Cluster.ReplicateData(schema, start, end)
 	elapsed := time.Since(s)
@@ -144,11 +156,11 @@ func Copy(dbs string, start time.Time, end time.Time) {
 
 }
 
-func HAMonitorStart() {
+func HAMonitorStart(master string, slave string) {
 
-	Cluster = initCluster()
+	Cluster = initCluster(master, slave)
 
-	schema, _ := Cluster.GetSchema()
+	schema, _ := Cluster.GetSchema("")
 
 	switch MainConfig.General.InitialReplication {
 	case "schema":

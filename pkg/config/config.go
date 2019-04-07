@@ -19,6 +19,11 @@ func SetDirs(data string, log string, conf string) {
 	confDir = conf
 }
 
+// SetLogDir set default dirs to set db and logs
+func SetLogDir(log string) {
+	logDir = log
+}
+
 // SetLogger set the output log
 func SetLogger(l *logrus.Logger) {
 	log = l

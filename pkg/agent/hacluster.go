@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"regexp"
 	"sync"
 	"time"
 )
@@ -54,13 +55,27 @@ func (hac *HACluster) GetStatus() *ClusterStatus {
 }
 
 // From Master to Slave
-func (hac *HACluster) GetSchema() ([]*InfluxSchDb, error) {
+func (hac *HACluster) GetSchema(dbfilter string) ([]*InfluxSchDb, error) {
 
 	schema := []*InfluxSchDb{}
+	var filter *regexp.Regexp
+	var err error
+
+	if len(dbfilter) > 0 {
+		filter, err = regexp.Compile(dbfilter)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	srcDBs, _ := GetDataBases(hac.Master.cli)
 
 	for _, db := range srcDBs {
+
+		if len(dbfilter) > 0 && !filter.MatchString(db) {
+			log.Debugf("Database %s not match to regex %s:  skipping.. ", db, dbfilter)
+			continue
+		}
 
 		// Get Retention policies
 		rps, err := GetRetentionPolicies(hac.Master.cli, db)

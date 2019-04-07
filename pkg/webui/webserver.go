@@ -78,19 +78,21 @@ func WebServer(publicPath string, bindAddr string, cfg *config.HTTPConfig, id st
 	// register middleware
 	m.Use(GetContextHandler())
 	//	m.Use(gzip.Gziper())
-	log.Infof("setting HTML Static Path to %s", publicPath)
-	m.Use(macaron.Static(publicPath,
-		macaron.StaticOptions{
-			// Prefix is the optional prefix used to serve the static directory content. Default is empty string.
-			Prefix: "",
-			// SkipLogging will disable [Static] log messages when a static file is served. Default is false.
-			SkipLogging: false,
-			// IndexFile defines which file to serve as index if it exists. Default is "index.html".
-			IndexFile: "index.html",
-			// Expires defines which user-defined function to use for producing a HTTP Expires Header. Default is nil.
-			// https://developers.google.com/speed/docs/insights/LeverageBrowserCaching
-			Expires: func() string { return "max-age=0" },
-		}))
+	if len(publicPath) > 0 {
+		log.Infof("setting HTML Static Path to %s", publicPath)
+		m.Use(macaron.Static(publicPath,
+			macaron.StaticOptions{
+				// Prefix is the optional prefix used to serve the static directory content. Default is empty string.
+				Prefix: "",
+				// SkipLogging will disable [Static] log messages when a static file is served. Default is false.
+				SkipLogging: false,
+				// IndexFile defines which file to serve as index if it exists. Default is "index.html".
+				IndexFile: "index.html",
+				// Expires defines which user-defined function to use for producing a HTTP Expires Header. Default is nil.
+				// https://developers.google.com/speed/docs/insights/LeverageBrowserCaching
+				Expires: func() string { return "max-age=0" },
+			}))
+	}
 
 	//Cookie should be unique for each agent instance ,
 	//if cockie_id is not set it takes the instanceID value to generate a unique array with as a md5sum
