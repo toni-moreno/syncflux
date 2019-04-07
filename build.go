@@ -42,7 +42,8 @@ func main() {
 	log.SetFlags(0)
 
 	ensureGoPath()
-	readVersionFromPackageJson()
+	//readVersionFromPackageJson()
+	readVersionFromChangelog()
 
 	log.Printf("Version: %s, Linux Version: %s, Package Iteration: %s\n", version, linuxPackageVersion, linuxPackageIteration)
 
@@ -148,6 +149,26 @@ func readVersionFromPackageJson() {
 	}
 }
 
+func readVersionFromChangelog() {
+	cmd := "grep ' *v *[0-9]*\\.[0-9]*\\.[0-9]' CHANGELOG.md | sed 's/# v *\\([0-9]*\\.[0-9]*\\.[0-9]\\) .*/\\1/g'"
+	out, err := exec.Command("bash", "-c", cmd).Output()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	linuxPackageVersion = strings.TrimSpace(string(out))
+	version = linuxPackageVersion
+	linuxPackageIteration = ""
+
+	// handle pre version stuff (deb / rpm does not support semver)
+	parts := strings.Split(version, "-")
+
+	if len(parts) > 1 {
+		linuxPackageVersion = parts[0]
+		linuxPackageIteration = parts[1]
+	}
+}
+
 type linuxPackageOptions struct {
 	packageType            string
 	homeDir                string
@@ -221,11 +242,11 @@ func createMinTar() {
 	runPrint("mkdir", "-p", filepath.Join(packageRoot, "/opt/syncflux/conf"))
 	runPrint("mkdir", "-p", filepath.Join(packageRoot, "/opt/syncflux/bin"))
 	runPrint("mkdir", "-p", filepath.Join(packageRoot, "/opt/syncflux/log"))
-	runPrint("mkdir", "-p", filepath.Join(packageRoot, "/opt/syncflux/public"))
-	runPrint("cp", "conf/sample.config.toml", filepath.Join(packageRoot, "/opt/syncflux/conf"))
+	//runPrint("mkdir", "-p", filepath.Join(packageRoot, "/opt/syncflux/public"))
+	runPrint("cp", "conf/sample.syncflux.toml", filepath.Join(packageRoot, "/opt/syncflux/conf"))
 	runPrint("cp", "bin/syncflux", filepath.Join(packageRoot, "/opt/syncflux/bin"))
 	runPrint("cp", "bin/syncflux.md5", filepath.Join(packageRoot, "/opt/syncflux/bin"))
-	runPrint("cp", "-a", filepath.Join(workingDir, "public")+"/.", filepath.Join(packageRoot, "/opt/syncflux/public"))
+	//runPrint("cp", "-a", filepath.Join(workingDir, "public")+"/.", filepath.Join(packageRoot, "/opt/syncflux/public"))
 	tarname := fmt.Sprintf("dist/syncflux-%s-%s_%s_%s.tar.gz", version, getGitSha(), runtime.GOOS, runtime.GOARCH)
 	runPrint("tar", "zcvf", tarname, "-C", packageRoot, ".")
 	runPrint("rm", "-rf", packageRoot)
@@ -251,11 +272,11 @@ func createFpmPackage(options linuxPackageOptions) {
 	// copy systemd filerunPrint("cp", "-a", filepath.Join(workingDir, "tmp")+"/.", filepath.Join(packageRoot, options.homeDir))
 	runPrint("cp", "-p", options.systemdFileSrc, filepath.Join(packageRoot, options.systemdServiceFilePath))
 	// copy release files
-	runPrint("cp", "-a", filepath.Join(workingDir+"/public"), filepath.Join(packageRoot, options.homeDir))
+	//runPrint("cp", "-a", filepath.Join(workingDir+"/public"), filepath.Join(packageRoot, options.homeDir))
 	// remove bin path
 	runPrint("rm", "-rf", filepath.Join(packageRoot, options.homeDir, "bin"))
 	// copy sample ini file to /etc/syncflux
-	runPrint("cp", "conf/sample.config.toml", filepath.Join(packageRoot, options.configFilePath))
+	runPrint("cp", "conf/sample.syncflux.toml", filepath.Join(packageRoot, options.configFilePath))
 
 	args := []string{
 		"-s", "dir",
@@ -382,7 +403,7 @@ func rmr(paths ...string) {
 
 func clean() {
 	//	rmr("bin", "Godeps/_workspace/pkg", "Godeps/_workspace/bin")
-	rmr("public")
+	//rmr("public")
 	//rmr("tmp")
 	rmr(filepath.Join(os.Getenv("GOPATH"), fmt.Sprintf("pkg/%s_%s/github.com/toni-moreno/syncflux", goos, goarch)))
 }

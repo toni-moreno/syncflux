@@ -1,10 +1,13 @@
-# v 0.1.0 (not yet released)
-### New features.
+# v 0.1.0 (2019-04-07)
+
+## New features
+
 * first release with  slavei db  syncronization with master
 * Added initial db schema replication 
 * Added initial db data replication
+* Added action copy
 
-### fixes
+## fixes
 
 
-### breaking changes
+## breaking changes

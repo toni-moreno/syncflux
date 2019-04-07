@@ -6,7 +6,14 @@ For complete information on installation from binary package and configuration y
 
 If you wish to compile from source code you can follow the next steps
 
+## Intall from precompiled packages
+
+Debian | RedHat |Docker
+-------|--------|------
+[deb](http://syncflux-rel.s3.amazonaws.com/builds/syncflux_latest_amd64.deb) - [signature](http://syncflux-rel.s3.amazonaws.com/builds/syncflux_latest_amd64.deb.sha1)|[rpm](http://syncflux-rel.s3.amazonaws.com/builds/syncflux-latest-1.x86_64.rpm) - [signature](http://syncflux-rel.s3.amazonaws.com/builds/syncflux-latest-1.x86_64.rpm.sha1)| `docker run -d --name=syncflux_instance00 -p 4090:4090 -v /mylocal/conf:/opt/syncflux/conf -v /mylocal/log:/opt/syncflux/log  tonimoreno/syncflux`
+
 ## Run from master
+
 If you want to build a package yourself, or contribute. Here is a guide for how to do that.
 
 ### Dependencies
