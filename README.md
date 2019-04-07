@@ -2,9 +2,6 @@
 
 SyncFlux is an Open Source InfluxDB  Data syncronization and replication tool with HTTP API Interface which has as main goal recover lost data from any  handmade HA influxDB 1.X cluster ( made as any simple relay  https://github.com/influxdata/influxdb-relay )  
 
-For complete information on installation from binary package and configuration you could read the [syncflux wiki](https://github.com/toni-moreno/syncflux/wiki).
-
-If you wish to compile from source code you can follow the next steps
 
 ## Intall from precompiled packages
 
