@@ -424,10 +424,17 @@ func WriteDB(c client.Client, b client.BatchPoints) {
 	}
 }
 
-func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, dbschema *InfluxSchDb) error {
+func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
 
 	var eEpoch, sEpoch time.Time
+
 	var hLength int64
+	var MaxLength int64
+	var chunkSecond int64
+
+	MaxLength = int64(maxret/chunk) + 1
+
+	chunkSecond = int64(chunk.Seconds())
 
 	eEpoch = time.Now()
 
@@ -437,22 +444,22 @@ func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, d
 
 		duration := time.Since(sEpoch)
 
-		hLength = int64(duration.Hours()) + 1
+		hLength = int64(duration/chunk) + 1
 
-		//The datas which can be inputed is less than a year
-		if hLength > 8760 {
-			hLength = 8760
+		if hLength > MaxLength {
+			hLength = MaxLength
 		}
+
 	} else {
-		hLength = 8760
+		hLength = MaxLength
 	}
 
 	var i int64
 	for i = 0; i < hLength; i++ {
-
+		s := time.Now()
 		//sync from newer to older data
-		endsec := eEpoch.Unix() - (i * 3600)
-		startsec := eEpoch.Unix() - ((i + 1) * 3600)
+		endsec := eEpoch.Unix() - (i * chunkSecond)
+		startsec := eEpoch.Unix() - ((i + 1) * chunkSecond)
 		var totalpoints int64
 		totalpoints = 0
 		for m, sch := range dbschema.Ftypes {
@@ -469,7 +476,8 @@ func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, d
 			WriteDB(dst.cli, batchpoints)
 
 		}
-		log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints)
+		elapsed := time.Since(s)
+		log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points Took [%s]", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints, elapsed.String())
 
 	}
 
@@ -477,29 +485,36 @@ func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, d
 	return nil
 }
 
-func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb) error {
+func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
 
 	if dbschema == nil {
 		err := fmt.Errorf("DBSChema for DB %s is null", db)
 		log.Errorf("%s", err.Error())
 		return err
 	}
+
 	var hLength int64
+	var MaxLength int64
+	var chunkSecond int64
 
 	duration := eEpoch.Sub(sEpoch)
 
-	hLength = int64(duration.Hours()) + 1
+	hLength = int64(duration/chunk) + 1
 
-	if hLength > 8760 {
-		hLength = 8760
+	MaxLength = int64(maxret/chunk) + 1
+
+	if hLength > MaxLength {
+		hLength = MaxLength
 	}
+
+	chunkSecond = int64(chunk.Seconds())
 
 	var i int64
 	for i = 0; i < hLength; i++ {
-
+		s := time.Now()
 		//sync from newer to older data
-		endsec := eEpoch.Unix() - (i * 3600)
-		startsec := eEpoch.Unix() - ((i + 1) * 3600)
+		endsec := eEpoch.Unix() - (i * chunkSecond)
+		startsec := eEpoch.Unix() - ((i + 1) * chunkSecond)
 		var totalpoints int64
 		totalpoints = 0
 		for m, sch := range dbschema.Ftypes {
@@ -516,7 +531,9 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEp
 			WriteDB(dst.cli, batchpoints)
 
 		}
-		log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints)
+
+		elapsed := time.Since(s)
+		log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points Took [%s]", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints, elapsed.String())
 
 	}
 

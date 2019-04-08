@@ -112,14 +112,16 @@ func initCluster(master string, slave string) *HACluster {
 
 		if slaveFound && masterFound && masterAlive && slaveAlive {
 			return &HACluster{
-				Master:        MDB,
-				Slave:         SDB,
-				CheckInterval: MainConfig.General.MinSyncInterval,
-				ClusterState:  "OK",
-				SlaveStateOK:  true,
-				SlaveLastOK:   time.Now(),
-				MasterStateOK: true,
-				MasterLastOK:  time.Now(),
+				Master:               MDB,
+				Slave:                SDB,
+				CheckInterval:        MainConfig.General.MinSyncInterval,
+				ClusterState:         "OK",
+				SlaveStateOK:         true,
+				SlaveLastOK:          time.Now(),
+				MasterStateOK:        true,
+				MasterLastOK:         time.Now(),
+				MaxRetentionInterval: MainConfig.General.MaxRetentionInterval,
+				ChunkDuration:        MainConfig.General.DataChunkDuration,
 			}
 
 		} else {
@@ -138,6 +140,39 @@ func initCluster(master string, slave string) *HACluster {
 		}
 		time.Sleep(MainConfig.General.MonitorRetryInterval)
 	}
+}
+
+func ReplSch(master string, slave string, dbs string) {
+
+	Cluster = initCluster(master, slave)
+
+	schema, err := Cluster.GetSchema(dbs)
+	if err != nil {
+		log.Errorf("Can not copy data , error on get Schema: %s", err)
+		return
+	}
+	s := time.Now()
+	Cluster.ReplicateSchema(schema)
+	elapsed := time.Since(s)
+	log.Infof("Replicate Schame take: %s", elapsed.String())
+
+}
+
+func SchCopy(master string, slave string, dbs string, start time.Time, end time.Time) {
+
+	Cluster = initCluster(master, slave)
+
+	schema, err := Cluster.GetSchema(dbs)
+	if err != nil {
+		log.Errorf("Can not copy data , error on get Schema: %s", err)
+		return
+	}
+	s := time.Now()
+	Cluster.ReplicateSchema(schema)
+	Cluster.ReplicateData(schema, start, end)
+	elapsed := time.Since(s)
+	log.Infof("Copy take: %s", elapsed.String())
+
 }
 
 func Copy(master string, slave string, dbs string, start time.Time, end time.Time) {

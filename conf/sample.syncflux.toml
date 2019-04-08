@@ -79,6 +79,23 @@
  # if some of them is down synflux will retry infinitely each monitor-retry-duration to work.
  monitor-retry-interval = "1m"
 
+ # 
+ # data-chuck-duration
+ #
+ # duration for each small, read  from master -> write to slave, chuck of data
+ # smaller chunks of data will use less memory on the syncflux process
+ # and also less resources on both master and slave databases
+ # greater chunks of data will improve sync speed 
+
+ data-chuck-duration = "60m"
+
+ # 
+ #  max-retention-interval
+ #
+ # for infinite ( or bigger ) retention policies full replication should begin somewhere in the time
+ # this parameter set the max retention.
+ 
+ max-retention-interval = "8760h" # 1 year
  
 
 # ---- HTTP API SECTION (Only valid on hamonitor action)

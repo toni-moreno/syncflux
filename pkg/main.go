@@ -244,7 +244,10 @@ func main() {
 	case "copy":
 		agent.Copy(master, slave, actiondb, starttime, endtime)
 	case "move":
-	case "replicateschema":
+	case "replicashema":
+		agent.ReplSch(master, slave, actiondb)
+	case "fullcopy":
+		agent.SchCopy(master, slave, actiondb, starttime, endtime)
 	default:
 		fmt.Printf("Unknown action: %s", action)
 	}

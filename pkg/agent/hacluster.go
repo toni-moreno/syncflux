@@ -28,6 +28,8 @@ type HACluster struct {
 	ClusterLastRecoverDuration time.Duration
 	statsData                  sync.RWMutex
 	Schema                     []*InfluxSchDb
+	ChunkDuration              time.Duration
+	MaxRetentionInterval       time.Duration
 }
 
 type ClusterStatus struct {
@@ -153,7 +155,7 @@ func (hac *HACluster) ReplicateData(schema []*InfluxSchDb, start time.Time, end 
 	for _, db := range schema {
 		for _, rp := range db.Rps {
 			log.Infof("Replicating Data from DB %s RP %s... SCHEMA %#+v.", db.Name, rp.Name, db)
-			SyncDBRP(hac.Master, hac.Slave, db.Name, rp, start, end, db)
+			SyncDBRP(hac.Master, hac.Slave, db.Name, rp, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
 		}
 	}
 	return nil
@@ -163,7 +165,7 @@ func (hac *HACluster) ReplicateDataFull(schema []*InfluxSchDb) error {
 	for _, db := range schema {
 		for _, rp := range db.Rps {
 			log.Infof("Replicating Data from DB %s RP %s....", db.Name, rp.Name)
-			SyncDBFull(hac.Master, hac.Slave, db.Name, rp, db)
+			SyncDBFull(hac.Master, hac.Slave, db.Name, rp, db, hac.ChunkDuration, hac.MaxRetentionInterval)
 		}
 	}
 	return nil

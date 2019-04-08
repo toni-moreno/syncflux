@@ -18,6 +18,8 @@ type GeneralConfig struct {
 	SlaveDB              string        `mapstructure:"slave-db"`
 	InitialReplication   string        `mapstructure:"initial-replication"`
 	MonitorRetryInterval time.Duration `mapstructure:"monitor-retry-interval"`
+	DataChunkDuration    time.Duration `mapstructure:"data-chuck-duration"`
+	MaxRetentionInterval time.Duration `mapstructure:"max-retention-interval"`
 }
 
 //SelfMonConfig configuration for self monitoring
