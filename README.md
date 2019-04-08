@@ -2,9 +2,6 @@
 
 SyncFlux is an Open Source InfluxDB  Data syncronization and replication tool with HTTP API Interface which has as main goal recover lost data from any  handmade HA influxDB 1.X cluster ( made as any simple relay  https://github.com/influxdata/influxdb-relay )  
 
-For complete information on installation from binary package and configuration you could read the [syncflux wiki](https://github.com/toni-moreno/syncflux/wiki).
-
-If you wish to compile from source code you can follow the next steps
 
 ## Intall from precompiled packages
 
@@ -31,8 +28,7 @@ go get -d github.com/toni-moreno/syncflux/...
 
 ```bash
 cd $GOPATH/src/github.com/toni-moreno/syncflux
-go run build.go setup            # only needed once to install godep
-godep restore                    # will pull down all golang lib dependencies in your current GOPATH
+go run build.go build           
 ```
 
 ### Creating minimal package tar.gz
@@ -70,7 +66,7 @@ bra run
 ```
 will init a change autodetect webserver with angular-cli (ng serve) and also a autodetect and recompile process with bra for the backend
 
-## Basic Use 
+## Basic Usage
 
 ### set config file
 
