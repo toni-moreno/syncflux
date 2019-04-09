@@ -7,8 +7,11 @@
 #  "hamonitor" => enables syncflux as a daemon to sync 
 #                2 Influx 1.X OSS db and sync data between them
 #                when needed (does active monitoring )
-#  "copy" => launch syncflux as a new process to copy data 
+#  "copy" => executes syncflux as a new process to copy data 
 #            between master and slave databases
+#  "replicashema" => executes syncflux as a new process to create 
+#             the database/s and all its related retention policies 
+#  "fullcopy" => does database/rp replication and after does a data copy
 
 [General]
  # ------------------------

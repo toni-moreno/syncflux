@@ -15,15 +15,33 @@ func NewAPI(m *macaron.Macaron) error {
 		m.Get("/health/" /*reqSignedIn,*/, HealthCluster)
 		m.Get("/health/:id" /*reqSignedIn,*/, HealthID)
 		m.Post("/action/:id", reqSignedIn, Action)
+		m.Get("/queryactive", QueryActive)
 	})
 
 	return nil
 }
 
 func HealthCluster(ctx *Context) {
-	log.Info("Doing Action")
+	log.Info("/healthcluster")
 
 	ctx.JSON(200, agent.Cluster.GetStatus())
+}
+
+func QueryActive(ctx *Context) {
+	log.Info("/queryactive")
+
+	status := agent.Cluster.GetStatus()
+
+	active := []string{}
+
+	if status.MasterState {
+		active = append(active, status.MID)
+	}
+	if status.SlaveState {
+		active = append(active, status.SID)
+	}
+
+	ctx.JSON(200, active)
 }
 
 func HealthID(ctx *Context) {

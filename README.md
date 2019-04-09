@@ -81,8 +81,11 @@ will init a change autodetect webserver with angular-cli (ng serve) and also a a
 #  "hamonitor" => enables syncflux as a daemon to sync 
 #                2 Influx 1.X OSS db and sync data between them
 #                when needed (does active monitoring )
-#  "copy" => launch syncflux as a new process to copy data 
+#  "copy" => executes syncflux as a new process to copy data 
 #            between master and slave databases
+#  "replicashema" => executes syncflux as a new process to create 
+#             the database/s and all its related retention policies 
+#  "fullcopy" => does database/rp replication and after does a data copy
 
 [General]
  # ------------------------
@@ -153,6 +156,23 @@ will init a change autodetect webserver with angular-cli (ng serve) and also a a
  # if some of them is down synflux will retry infinitely each monitor-retry-duration to work.
  monitor-retry-interval = "1m"
 
+ # 
+ # data-chuck-duration
+ #
+ # duration for each small, read  from master -> write to slave, chuck of data
+ # smaller chunks of data will use less memory on the syncflux process
+ # and also less resources on both master and slave databases
+ # greater chunks of data will improve sync speed 
+
+ data-chuck-duration = "60m"
+
+ # 
+ #  max-retention-interval
+ #
+ # for infinite ( or bigger ) retention policies full replication should begin somewhere in the time
+ # this parameter set the max retention.
+ 
+ max-retention-interval = "8760h" # 1 year
  
 
 # ---- HTTP API SECTION (Only valid on hamonitor action)
@@ -167,23 +187,7 @@ will init a change autodetect webserver with angular-cli (ng serve) and also a a
 
 # ---- INFLUXDB  SECTION
 # Sets a list of available DB's that can be used 
-# as master or slaves db's on any of the posible actions
 
-[[influxdb]]
- release = "1x"
- name = "influxdb01"
- location = "http://127.0.0.1:8086/"
- admin-user = "admin"
- admin-passwd = "admin"
- timeout = "10s"
-
-[[influxdb]]
- release = "1x"
- name = "influxdb02"
- location = "http://127.0.0.1:8087/"
- admin-user = "admin"
- admin-passwd = "admin"
- timeout = "10s"
 ````
 
 ### Run as a Database replication Tool

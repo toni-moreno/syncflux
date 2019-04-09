@@ -36,6 +36,8 @@ type ClusterStatus struct {
 	ClusterState               string
 	ClusterNumRecovers         int
 	ClusterLastRecoverDuration time.Duration
+	MID                        string
+	SID                        string
 	MasterState                bool
 	MasterLastOK               time.Time
 	SlaveState                 bool
@@ -47,6 +49,8 @@ func (hac *HACluster) GetStatus() *ClusterStatus {
 	defer hac.statsData.RUnlock()
 	return &ClusterStatus{
 		ClusterState:               hac.ClusterState,
+		MID:                        hac.Master.cfg.Name,
+		SID:                        hac.Slave.cfg.Name,
 		ClusterNumRecovers:         hac.ClusterNumRecovers,
 		ClusterLastRecoverDuration: hac.ClusterLastRecoverDuration,
 		MasterState:                hac.MasterStateOK,
