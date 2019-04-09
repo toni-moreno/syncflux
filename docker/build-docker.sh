@@ -5,7 +5,7 @@ set -e -x
 go tool dist env > /tmp/goenv.tmp
 . /tmp/goenv.tmp
 
-VERSION=`grep " *v *[0-9]*\.[0-9]*\.[0-9]" CHANGELOG.md | sed 's/# v *\([0-9]*\.[0-9]*\.[0-9]\) .*/\1/g'`
+VERSION=`grep " *v *[0-9]*\.[0-9]*\.[0-9]" CHANGELOG.md | sed 's/# v *\([0-9]*\.[0-9]*\.[0-9]\) .*/\1/g'|head -1`
 COMMIT=`git rev-parse --short HEAD`
 
 

@@ -150,7 +150,7 @@ func readVersionFromPackageJson() {
 }
 
 func readVersionFromChangelog() {
-	cmd := "grep ' *v *[0-9]*\\.[0-9]*\\.[0-9]' CHANGELOG.md | sed 's/# v *\\([0-9]*\\.[0-9]*\\.[0-9]\\) .*/\\1/g'"
+	cmd := "grep ' *v *[0-9]*\\.[0-9]*\\.[0-9]' CHANGELOG.md | sed 's/# v *\\([0-9]*\\.[0-9]*\\.[0-9]\\) .*/\\1/g'| head -1"
 	out, err := exec.Command("bash", "-c", cmd).Output()
 	if err != nil {
 		log.Fatal(err)

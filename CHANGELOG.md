@@ -1,3 +1,17 @@
+# v 0.2.0 (not yet released)
+
+## New features
+
+* added replicashema and fullcopy execution mode.
+* added /queryactive endpoint available to external tools.
+* added syncronization tunning params data-chuck-duration , max-retention-interval  
+
+## fixes
+
+
+## breaking changes
+
+
 # v 0.1.0 (2019-04-07)
 
 ## New features
