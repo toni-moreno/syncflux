@@ -75,7 +75,7 @@ func CreateDB(con client.Client, db string, rp *RetPol) error {
 		return nil
 	}
 
-	cmd := "CREATE DATABASE " + db + " WITH DURATION " + rp.Duration.String() + " REPLICATION " + strconv.FormatInt(rp.NReplicas, 10) + " SHARD DURATION " + rp.ShardGroupDuration.String() + " NAME " + rp.Name
+	cmd := "CREATE DATABASE " + db + " WITH DURATION " + rp.Duration.String() + " REPLICATION " + strconv.FormatInt(rp.NReplicas, 10) + " SHARD DURATION " + rp.ShardGroupDuration.String() + " NAME " + "\"" + rp.Name + "\""
 
 	q := client.Query{
 		Command: cmd,
