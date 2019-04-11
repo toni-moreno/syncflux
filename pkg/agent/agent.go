@@ -158,7 +158,7 @@ func ReplSch(master string, slave string, dbs string) {
 
 }
 
-func SchCopy(master string, slave string, dbs string, start time.Time, end time.Time) {
+func SchCopy(master string, slave string, dbs string, start time.Time, end time.Time, full bool) {
 
 	Cluster = initCluster(master, slave)
 
@@ -169,13 +169,17 @@ func SchCopy(master string, slave string, dbs string, start time.Time, end time.
 	}
 	s := time.Now()
 	Cluster.ReplicateSchema(schema)
-	Cluster.ReplicateData(schema, start, end)
+	if full {
+		Cluster.ReplicateDataFull(schema)
+	} else {
+		Cluster.ReplicateData(schema, start, end)
+	}
 	elapsed := time.Since(s)
 	log.Infof("Copy take: %s", elapsed.String())
 
 }
 
-func Copy(master string, slave string, dbs string, start time.Time, end time.Time) {
+func Copy(master string, slave string, dbs string, start time.Time, end time.Time, full bool) {
 
 	Cluster = initCluster(master, slave)
 

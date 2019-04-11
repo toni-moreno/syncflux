@@ -5,20 +5,36 @@ import (
 	"strconv"
 
 	"encoding/json"
-	//client "github.com/influxdata/influxdb1-client/v2"
 	"github.com/influxdata/influxdb1-client/v2"
 	//"net/url"
 	"time"
 )
 
-func DBclient(location string, user string, pass string) (client.Client, error) {
+type RetPol struct {
+	Name               string
+	Duration           time.Duration
+	ShardGroupDuration time.Duration
+	NReplicas          int64
+	Def                bool
+}
 
-	//connect to database
-	/*u, err := url.Parse(location)
-	if err != nil {
-		log.Printf("Fail to parse host and port of database %s, error: %s\n", location, err)
-		return nil, err
-	}*/
+func (rp *RetPol) GetFirstLastTime(max time.Duration) (time.Time, time.Time) {
+	if rp.Duration == 0 {
+		last := time.Now()
+		return last.Add(-max), last
+	}
+	last := time.Now()
+	return last.Add(-rp.Duration), last
+}
+
+func (rp *RetPol) GetFirstTime(max time.Duration) time.Time {
+	if rp.Duration == 0 {
+		return time.Now().Add(-max)
+	}
+	return time.Now().Add(-rp.Duration)
+}
+
+func DBclient(location string, user string, pass string) (client.Client, error) {
 
 	info := client.HTTPConfig{
 		Addr:      location,
@@ -59,14 +75,6 @@ func DBclient(location string, user string, pass string) (client.Client, error) 
 	log.Printf("Happy as a hippo! %v, %s", dur, ver)
 
 	return con, nil
-}
-
-type RetPol struct {
-	Name               string
-	Duration           time.Duration
-	ShardGroupDuration time.Duration
-	NReplicas          int64
-	Def                bool
 }
 
 func CreateDB(con client.Client, db string, rp *RetPol) error {
@@ -288,7 +296,7 @@ func StrUnixNano2Time(tstamp string) (time.Time, error) {
 	return time.Unix(sec, nsec), nil
 }
 
-func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string]string) (client.BatchPoints, int64) {
+func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string]string) (client.BatchPoints, int64, error) {
 	var totalpoints int64
 
 	totalpoints = 0
@@ -309,12 +317,13 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 	batchpoints, err := client.NewBatchPoints(bpcfg)
 	if err != nil {
 		log.Error("Error on create BatchPoints: %s", err)
-		return batchpoints, 0
+		return batchpoints, 0, err
 	}
 
 	response, err := c.Query(q)
 	if err != nil {
 		log.Warnf("Fail to get response from query %s, read database error: %s", cmd, err.Error())
+		return nil, 0, err
 	}
 
 	res := response.Results
@@ -413,7 +422,7 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 		}
 
 	}
-	return batchpoints, totalpoints
+	return batchpoints, totalpoints, nil
 }
 
 func WriteDB(c client.Client, b client.BatchPoints) {
@@ -424,7 +433,7 @@ func WriteDB(c client.Client, b client.BatchPoints) {
 	}
 }
 
-func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
+/*func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
 
 	var eEpoch, sEpoch time.Time
 
@@ -470,7 +479,10 @@ func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, d
 
 			log.Debugf("processing Database %s Measurement %s from %d to %d", db, m, startsec, endsec)
 			getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-			batchpoints, np := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, sch)
+			batchpoints, np, err := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, sch)
+			if err != nil {
+				return err
+			}
 			totalpoints += np
 			log.Debugf("processed %d points", np)
 			WriteDB(dst.cli, batchpoints)
@@ -483,7 +495,7 @@ func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, d
 
 	log.Printf("Copy data from %s[%s|%s] to %s[%s|%s] has done!\n", src.cfg.Name, db, rp.Name, dst.cfg.Name, db, rp.Name)
 	return nil
-}
+}*/
 
 func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
 
@@ -525,7 +537,10 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEp
 
 			log.Debugf("processing Database %s Measurement %s from %d to %d", db, m, startsec, endsec)
 			getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-			batchpoints, np := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, sch)
+			batchpoints, np, err := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, sch)
+			if err != nil {
+				return err
+			}
 			totalpoints += np
 			log.Debugf("processed %d points", np)
 			WriteDB(dst.cli, batchpoints)
@@ -541,96 +556,3 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEp
 
 	return nil
 }
-
-/*
-func SyncDBs(src *InfluxMonitor, dst *InfluxMonitor, stime time.Time, etime time.Time, schema []*InfluxSchDb) error {
-
-	scon, err1 := DBclient(src.cfg.Location, src.cfg.AdminUser, src.cfg.AdminPasswd)
-	if err1 != nil {
-		log.Errorf("%s", err1)
-		return err1
-	}
-	dcon, err2 := DBclient(dst.cfg.Location, dst.cfg.AdminUser, dst.cfg.AdminPasswd)
-	if err2 != nil {
-		log.Errorf("%s", err2)
-		return err2
-	}
-
-	template := "2006-01-02 15:04:05"
-
-	sinceTime, errSin := time.Parse(template, "1970-01-01 00:00:00")
-	if errSin != nil {
-		log.Println("Fail to parse sinceTime")
-	}
-
-	sEpoch := stime.Sub(sinceTime)
-	eEpoch := etime.Sub(sinceTime)
-
-	hLength := int64(eEpoch.Hours()-sEpoch.Hours()) + 1
-
-	//The datas which can be inputed is less than a year
-	if hLength > 8760 {
-		hLength = 8760
-	}
-	dbarray, _ := GetDataBases(scon)
-
-	for _, db := range dbarray {
-		log.Infof("Processing Database %s", db)
-
-		var dbschema *InfluxSchDb
-
-		for _, k := range schema {
-			if k.Name == db {
-				dbschema = k
-			}
-		}
-
-		// Get Retention policies
-		rps, err := GetRetentionPolicies(scon, db)
-		if err != nil {
-			log.Errorf("Error on get Retention Policies on Database %s (%s) %s : Error: %s", db, src.cfg.Name, src.cfg.Location, err)
-			continue
-		}
-
-		for _, rp := range rps {
-
-			measurements := GetMeasurements(scon, db)
-
-			var i int64
-			for i = 0; i < hLength; i++ {
-
-				startsec := int64(sEpoch.Seconds() + float64(i*3600))
-				endsec := int64(sEpoch.Seconds() + float64((i+1)*3600))
-				var totalpoints int64
-				totalpoints = 0
-				for _, m := range measurements {
-
-					fieldmap := dbschema.Ftypes[m]
-
-					log.Debugf("Processing measurement %s with schema #%+v", m, fieldmap)
-
-					//write datas of every hour
-
-					log.Debugf("processing Database %s Measurement %s from %d to %d", db, m, startsec, endsec)
-					getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-					batchpoints, np := ReadDB(scon, db, rp.Name, db, rp.Name, getvalues, fieldmap)
-					totalpoints += np
-					log.Debugf("processed %d points", np)
-					WriteDB(dcon, batchpoints)
-
-					time.Sleep(time.Millisecond)
-				}
-				log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints)
-
-				time.Sleep(time.Millisecond)
-
-			}
-			log.Printf("Copy data from %s[%s|%s] to %s[%s|%s] has done!\n", src.cfg.Name, db, rp.Name, dst.cfg.Name, db, rp.Name)
-
-		}
-
-	}
-
-	log.Printf("Copy data from %s to %s has done!\n", src.cfg.Name, dst.cfg.Name)
-	return nil
-}*/

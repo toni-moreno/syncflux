@@ -42,6 +42,7 @@ var (
 	starttime    = time.Now().Add(-3600 * 24)
 	endtimestr   string
 	endtime      = time.Now()
+	fulltime     bool
 )
 
 func writePIDFile() {
@@ -72,6 +73,7 @@ func flags() *flag.FlagSet {
 	f.StringVar(&actiondb, "db", actiondb, "set the db where to play")
 	f.StringVar(&starttimestr, "start", starttimestr, "set the starttime to do action (no valid in hamonitor) default now-24h")
 	f.StringVar(&endtimestr, "end", endtimestr, "set the endtime do action (no valid in hamonitor) default now")
+	f.BoolVar(&fulltime, "full", fulltime, "copy full database or now()- max-retention-interval if greater retention policy")
 	//--------------------------------------------------------------
 	f.StringVar(&configFile, "config", configFile, "config file")
 	f.StringVar(&logDir, "logs", logDir, "log directory")
@@ -242,12 +244,12 @@ func main() {
 		agent.HAMonitorStart(master, slave)
 		webui.WebServer("", httpPort, &agent.MainConfig.HTTP, agent.MainConfig.General.InstanceID)
 	case "copy":
-		agent.Copy(master, slave, actiondb, starttime, endtime)
+		agent.Copy(master, slave, actiondb, starttime, endtime, fulltime)
 	case "move":
 	case "replicashema":
 		agent.ReplSch(master, slave, actiondb)
 	case "fullcopy":
-		agent.SchCopy(master, slave, actiondb, starttime, endtime)
+		agent.SchCopy(master, slave, actiondb, starttime, endtime, fulltime)
 	default:
 		fmt.Printf("Unknown action: %s", action)
 	}
