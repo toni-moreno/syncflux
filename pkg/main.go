@@ -39,7 +39,7 @@ var (
 	slave        string
 	actiondb     = "all"
 	starttimestr string
-	starttime    = time.Now().Add(-3600)
+	starttime    = time.Now().Add(-3600 * 24)
 	endtimestr   string
 	endtime      = time.Now()
 )
@@ -66,7 +66,7 @@ func flags() *flag.FlagSet {
 	var f flag.FlagSet
 	f.BoolVar(&getversion, "version", getversion, "display the version")
 	//--------------------------------------------------------------
-	f.StringVar(&action, "action", action, "hamonitor(default),copy,move,replicateschema")
+	f.StringVar(&action, "action", action, "hamonitor(default),copy,fullcopy,replicaschema")
 	f.StringVar(&master, "master", master, "choose master ID from all those in the config file where to get data (override the master-db parameter in the config file)")
 	f.StringVar(&slave, "slave", slave, "choose master ID from all those in the config file where to write data (override the slave-db parameter in the config file)")
 	f.StringVar(&actiondb, "db", actiondb, "set the db where to play")
