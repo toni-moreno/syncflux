@@ -189,7 +189,11 @@ func Copy(master string, slave string, dbs string, start time.Time, end time.Tim
 		return
 	}
 	s := time.Now()
-	Cluster.ReplicateData(schema, start, end)
+	if full {
+		Cluster.ReplicateDataFull(schema)
+	} else {
+		Cluster.ReplicateData(schema, start, end)
+	}
 	elapsed := time.Since(s)
 	log.Infof("Copy take: %s", elapsed.String())
 
