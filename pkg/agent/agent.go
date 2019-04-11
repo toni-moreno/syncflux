@@ -226,27 +226,13 @@ func HAMonitorStart(master string, slave string) {
 func End() (time.Duration, error) {
 
 	start := time.Now()
-	log.Infof("END: begin device Gather processes stop... at %s", start.String())
-
-	// wait until Done
-	processWg.Wait()
-
-	log.Infof("END: Finished from %s to %s [Duration : %s]", start.String(), time.Now().String(), time.Since(start).String())
+	//nothing to do
 	return time.Since(start), nil
 }
 
 // ReloadConf stops the polling, reloads all configuration and restart the polling.
 func ReloadConf() (time.Duration, error) {
 	start := time.Now()
-	log.Infof("RELOADCONF INIT: begin device Gather processes stop... at %s", start.String())
-	End()
-
-	log.Info("RELOADCONF: loading configuration Again...")
-
-	log.Info("RELOADCONF: Starting all device processes again...")
-	// Initialize Devices in Runtime map
-
-	log.Infof("RELOADCONF END: Finished from %s to %s [Duration : %s]", start.String(), time.Now().String(), time.Since(start).String())
-
+	//nothing to do yet
 	return time.Since(start), nil
 }
