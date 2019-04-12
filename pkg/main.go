@@ -211,6 +211,11 @@ func main() {
 				agent.End()
 				log.Infof("Exiting for requested user SIGTERM")
 				os.Exit(1)
+			case syscall.SIGINT:
+				log.Infof("Received INT signal")
+				agent.End()
+				log.Infof("Exiting for requested user SIGINT")
+				os.Exit(1)
 			case syscall.SIGHUP:
 				log.Infof("Received HUP signal")
 				agent.ReloadConf()
