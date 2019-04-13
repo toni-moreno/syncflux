@@ -20,6 +20,8 @@ type GeneralConfig struct {
 	MonitorRetryInterval time.Duration `mapstructure:"monitor-retry-interval"`
 	DataChunkDuration    time.Duration `mapstructure:"data-chuck-duration"`
 	MaxRetentionInterval time.Duration `mapstructure:"max-retention-interval"`
+	RWMaxRetries         int           `mapstructure:"rw-max-retries"`
+	RWRetryDelay         time.Duration `mapstructure:"rw-retry-delay"`
 }
 
 //SelfMonConfig configuration for self monitoring

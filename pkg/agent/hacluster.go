@@ -158,8 +158,8 @@ func (hac *HACluster) ReplicateSchema(schema []*InfluxSchDb) error {
 func (hac *HACluster) ReplicateData(schema []*InfluxSchDb, start time.Time, end time.Time) error {
 	for _, db := range schema {
 		for _, rp := range db.Rps {
-			log.Infof("Replicating Data from DB %s RP %s...", db.Name, rp.Name, db)
-			log.Debugf("Replicating Data from DB %s RP %s... SCHEMA %#+v.", db.Name, rp.Name, db)
+			log.Infof("Replicating Data from DB %s RP %s...", db.Name, rp.Name)
+			//log.Debugf("%s RP %s... SCHEMA %#+v.", db.Name, rp.Name, db)
 			err := SyncDBRP(hac.Master, hac.Slave, db.Name, rp, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
 			if err != nil {
 				log.Errorf("Data Replication error in DB [%s] RP [%s] | Error: %s", db, rp.Name, err)

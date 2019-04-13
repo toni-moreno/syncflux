@@ -14,91 +14,110 @@
 #  "fullcopy" => does database/rp replication and after does a data copy
 
 [General]
- # ------------------------
- # logdir ( only valid on hamonitor action) 
- #  the directory where to place logs 
- #  will place the main log "
- #  
+# ------------------------
+# logdir ( only valid on hamonitor action) 
+#  the directory where to place logs 
+#  will place the main log "
+#  
 
  logdir = "./log"
 
- # ------------------------
- # loglevel ( valid for all actions ) 
- #  set the log level , valid values are:
- #  fatal,error,warn,info,debug,trace
+# ------------------------
+# loglevel ( valid only for hamonitor actions ) 
+#  set the log level , valid values are:
+#  fatal,error,warn,info,debug,trace
+# on copy/fullcopy actions  loglevel is mapped with 
+#  (nothing) = Warning
+#  -v = Info
+#  -vv =  debug
+#  -vvv = trace
 
  loglevel = "debug"
 
- # -----------------------------
- # sync-mode (only valid on hamonitor action)
- #  NOTE: rigth now only  "onlyslave" (one way sync ) is valied
- #  (planned sync in two ways in the future)
+# -----------------------------
+# sync-mode (only valid on hamonitor action)
+#  NOTE: rigth now only  "onlyslave" (one way sync ) is valied
+#  (planned sync in two ways in the future)
 
  sync-mode = "onlyslave"
 
- # ---------------------------
- # master-db choose one of the configured InfluxDB as a SlaveDB
- # this parameter will be override by the command line -master parameter
+# ---------------------------
+# master-db choose one of the configured InfluxDB as a SlaveDB
+# this parameter will be override by the command line -master parameter
  
  master-db = "influxdb01"
 
- # ---------------------------
- # slave-db choose one of the configured InfluxDB as a SlaveDB
- # this parameter will be override by the command line -slave parameter
+# ---------------------------
+# slave-db choose one of the configured InfluxDB as a SlaveDB
+# this parameter will be override by the command line -slave parameter
  
  slave-db = "influxdb02"
 
- # ------------------------------
- # check-interval
- # the inteval for health cheking for both master and slave databases
+# ------------------------------
+# check-interval
+# the inteval for health cheking for both master and slave databases
  
  check-interval = "10s"
 
- # ------------------------------
- # min-sync-interval
- # the inteval in which HA monitor will check both are ok and change
- # the state of the cluster if not, making all needed recovery actions
+# ------------------------------
+# min-sync-interval
+# the inteval in which HA monitor will check both are ok and change
+# the state of the cluster if not, making all needed recovery actions
 
  min-sync-interval = "20s"
  
- # ---------------------------------------------
- # initial-replication
- # tells syncflux if needed some type of replication 
- # on slave database from master database on initialize 
- # (only valid on hamonitor action)
- #
- # none:  no replication
- # schema: database and retention policies will be recreated on the slave database
- # data: data for all retention policies will be replicated 
- #      be carefull: this full data copy could take hours,days.
- # all:  will replicate first the schema and them the full data 
+# ---------------------------------------------
+# initial-replication
+# tells syncflux if needed some type of replication 
+# on slave database from master database on initialize 
+# (only valid on hamonitor action)
+#
+# none:  no replication
+# schema: database and retention policies will be recreated on the slave database
+# data: data for all retention policies will be replicated 
+#      be carefull: this full data copy could take hours,days.
+# all:  will replicate first the schema and them the full data 
 
  initial-replication = "none"
 
- # 
- # monitor-retry-durtion 
- #
- # syncflux only can begin work when master and slave database are both up, 
- # if some of them is down synflux will retry infinitely each monitor-retry-duration to work.
+# 
+# monitor-retry-durtion 
+#
+# syncflux only can begin work when master and slave database are both up, 
+# if some of them is down synflux will retry infinitely each monitor-retry-duration to work.
+
  monitor-retry-interval = "1m"
 
- # 
- # data-chuck-duration
- #
- # duration for each small, read  from master -> write to slave, chuck of data
- # smaller chunks of data will use less memory on the syncflux process
- # and also less resources on both master and slave databases
- # greater chunks of data will improve sync speed 
+# 
+# data-chuck-duration
+#
+# duration for each small, read  from master -> write to slave, chuck of data
+# smaller chunks of data will use less memory on the syncflux process
+# and also less resources on both master and slave databases
+# greater chunks of data will improve sync speed 
 
  data-chuck-duration = "60m"
 
- # 
- #  max-retention-interval
- #
- # for infinite ( or bigger ) retention policies full replication should begin somewhere in the time
- # this parameter set the max retention.
+# 
+#  max-retention-interval
+#
+# for infinite ( or bigger ) retention policies full replication should begin somewhere in the time
+# this parameter set the max retention.
  
  max-retention-interval = "8760h" # 1 year
+
+#
+#  rw-max-retries
+#  
+#  If any of the read ( from master) or write ( to slave ) querys fails , 
+#  the query will be repeated at leas rw-max-retries
+ 
+ rw-max-retries = 5
+
+#  If any of the read ( from master) or write ( to slave ) querys fails , 
+#  the query will be repeated at leas rw-max-retries and we can force a pause from at least rw-retry-delay
+ 
+ rw-retry-delay = "10s"
  
 
 # ---- HTTP API SECTION (Only valid on hamonitor action)

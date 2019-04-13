@@ -43,6 +43,12 @@ var (
 	endtimestr   string
 	endtime      = time.Now()
 	fulltime     bool
+	chunktimestr string
+	//log level
+
+	loginfo  bool
+	logdebug bool
+	logtrace bool
 )
 
 func writePIDFile() {
@@ -71,9 +77,17 @@ func flags() *flag.FlagSet {
 	f.StringVar(&master, "master", master, "choose master ID from all those in the config file where to get data (override the master-db parameter in the config file)")
 	f.StringVar(&slave, "slave", slave, "choose master ID from all those in the config file where to write data (override the slave-db parameter in the config file)")
 	f.StringVar(&actiondb, "db", actiondb, "set the db where to play")
+	f.StringVar(&chunktimestr, "chunk", chunktimestr, "set RW chuck periods as in the data-chuck-duration config param")
 	f.StringVar(&starttimestr, "start", starttimestr, "set the starttime to do action (no valid in hamonitor) default now-24h")
 	f.StringVar(&endtimestr, "end", endtimestr, "set the endtime do action (no valid in hamonitor) default now")
 	f.BoolVar(&fulltime, "full", fulltime, "copy full database or now()- max-retention-interval if greater retention policy")
+	//  -v = Info
+	//  -vv =  debug
+	//  -vvv = trace
+	f.BoolVar(&loginfo, "v", loginfo, "set log level to Info")
+	f.BoolVar(&logdebug, "vv", logdebug, "set log level to Debug")
+	f.BoolVar(&logtrace, "vvv", logtrace, "set log level to Trace")
+
 	//--------------------------------------------------------------
 	f.StringVar(&configFile, "config", configFile, "config file")
 	f.StringVar(&logDir, "logs", logDir, "log directory")
@@ -159,11 +173,25 @@ func init() {
 		log.Infof("Set Slave DB %s from Command Line parameters", slave)
 	}
 
-	if len(cfg.General.LogLevel) > 0 {
+	if len(cfg.General.LogLevel) > 0 && action == "hamonitor" {
 		l, _ := logrus.ParseLevel(cfg.General.LogLevel)
 		log.Level = l
 		log.Infof("Set log level to  %s from Config File", cfg.General.LogLevel)
 	}
+	if action != "hamonitor" {
+		switch {
+		case loginfo:
+			log.Level = logrus.InfoLevel
+		case logdebug:
+			log.Level = logrus.DebugLevel
+		case logtrace:
+			log.Level = logrus.TraceLevel
+		default:
+			log.Level = logrus.WarnLevel
+
+		}
+	}
+
 	/*if len(dataDir) == 0 {
 		dataDir = cfg.General.DataDir
 		log.Infof("Set DataDir %s from Command Line parameters", dataDir)
@@ -231,7 +259,7 @@ func main() {
 	if len(endtimestr) > 0 {
 		endtime, err = parseInputTime(endtimestr)
 		if err != nil {
-			fmt.Printf("ERROR in Parse End Time : %s", err)
+			fmt.Printf("ERROR in Parse End Time (%s) : Error %s", endtimestr, err)
 			os.Exit(1)
 		}
 	}
@@ -239,9 +267,17 @@ func main() {
 	if len(starttimestr) > 0 {
 		starttime, err = parseInputTime(starttimestr)
 		if err != nil {
-			fmt.Printf("ERROR in Parse End Time : %s", err)
+			fmt.Printf("ERROR in Parse End Time (%s) : Error %s", starttimestr, err)
 			os.Exit(1)
 		}
+	}
+	if len(chunktimestr) > 0 {
+		dur, err := time.ParseDuration(chunktimestr)
+		if err != nil {
+			fmt.Printf("ERROR in Parse Chunk Duration (%s) :  Error %s", chunktimestr, err)
+			os.Exit(1)
+		}
+		agent.MainConfig.General.DataChunkDuration = dur
 	}
 
 	switch action {

@@ -6,7 +6,7 @@ import (
 
 	"encoding/json"
 	"github.com/influxdata/influxdb1-client/v2"
-	//"net/url"
+	"github.com/toni-moreno/syncflux/pkg/agent/try"
 	"time"
 )
 
@@ -41,6 +41,7 @@ func DBclient(location string, user string, pass string) (client.Client, error) 
 		Username:  user,
 		Password:  pass,
 		UserAgent: "syncflux-agent",
+		Timeout:   120 * time.Second,
 	}
 
 	con, err2 := client.NewHTTPClient(info)
@@ -72,7 +73,7 @@ func DBclient(location string, user string, pass string) (client.Client, error) 
 		}
 
 	}
-	log.Printf("Happy as a hippo! %v, %s", dur, ver)
+	log.Debugf("Happy as a hippo! %v, %s", dur, ver)
 
 	return con, nil
 }
@@ -298,14 +299,21 @@ func StrUnixNano2Time(tstamp string) (time.Time, error) {
 
 func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string]string) (client.BatchPoints, int64, error) {
 	var totalpoints int64
-
+	RWMaxRetries := MainConfig.General.RWMaxRetries
+	RWRetryDelay := MainConfig.General.RWRetryDelay
 	totalpoints = 0
+
+	//param := make(map[string]interface{})
+	//param["wait_for_leader"] = "2000s"
 
 	q := client.Query{
 		Command:         cmd,
 		Database:        sdb,
 		RetentionPolicy: srp,
 		Precision:       "ns",
+		Chunked:         true,
+		ChunkSize:       10000,
+		//Parameters:      param,
 	}
 
 	bpcfg := client.BatchPointsConfig{
@@ -319,10 +327,27 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 		log.Error("Error on create BatchPoints: %s", err)
 		return batchpoints, 0, err
 	}
+	var response *client.Response
 
-	response, err := c.Query(q)
+	//Retry query if some error happens
+
+	err = try.Do(func(attempt int) (bool, error) {
+		var qerr error
+		s := time.Now()
+		response, qerr = c.Query(q)
+		elapsed := time.Since(s)
+		log.Debug("Query [%s] took %s ", cmd, elapsed.String())
+		if qerr != nil {
+			log.Warnf("Fail to get response from query in attempt %d / read database error: %s", attempt, qerr)
+			log.Warnf("Trying again... in %s sec", RWRetryDelay.String())
+			time.Sleep(RWRetryDelay) // wait a minute
+		}
+
+		return attempt < RWMaxRetries, qerr
+
+	})
 	if err != nil {
-		log.Warnf("Fail to get response from query %s, read database error: %s", cmd, err.Error())
+		log.Errorf("Max Retries (%d) exceeded on read Data: Last error %s ", RWMaxRetries, err)
 		return nil, 0, err
 	}
 
@@ -330,12 +355,11 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 	if len(res) == 0 {
 		log.Warnf("The response of query [%s] is void, read database error!\n", cmd)
 	} else {
-
 		resLength := len(res)
 		for k := 0; k < resLength; k++ {
 
 			//show progress of reading series
-
+			log.Tracef("Reading %d Series for db %s", len(res[k].Series), sdb)
 			for _, ser := range res[k].Series {
 				log.Tracef("ROW Result [%d] [%#+v]", k, ser)
 
@@ -425,77 +449,77 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 	return batchpoints, totalpoints, nil
 }
 
-func WriteDB(c client.Client, b client.BatchPoints) {
-
-	err := c.Write(b)
-	if err != nil {
-		log.Printf("Fail to write to database, error: %s\n", err.Error())
+func min(a, b int) int {
+	if a < b {
+		return a
 	}
+	return b
 }
 
-/*func SyncDBFull(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
+func BpSplit(bp client.BatchPoints, splitnum int) []client.BatchPoints {
 
-	var eEpoch, sEpoch time.Time
+	points := bp.Points()
+	len := len(points)
+	lim := (len / splitnum) + 1
+	ret := make([]client.BatchPoints, 0, lim)
 
-	var hLength int64
-	var MaxLength int64
-	var chunkSecond int64
-
-	MaxLength = int64(maxret/chunk) + 1
-
-	chunkSecond = int64(chunk.Seconds())
-
-	eEpoch = time.Now()
-
-	if rp.Duration != 0 {
-
-		sEpoch = eEpoch.Add(-rp.Duration)
-
-		duration := time.Since(sEpoch)
-
-		hLength = int64(duration/chunk) + 1
-
-		if hLength > MaxLength {
-			hLength = MaxLength
-		}
-
-	} else {
-		hLength = MaxLength
+	if len < splitnum {
+		ret = append(ret, bp)
+		return ret
 	}
 
-	var i int64
-	for i = 0; i < hLength; i++ {
-		s := time.Now()
-		//sync from newer to older data
-		endsec := eEpoch.Unix() - (i * chunkSecond)
-		startsec := eEpoch.Unix() - ((i + 1) * chunkSecond)
-		var totalpoints int64
-		totalpoints = 0
-		for m, sch := range dbschema.Ftypes {
+	for i := 0; i < lim; i++ {
 
-			log.Debugf("Processing measurement %s with schema #%+v", m, sch)
+		bpcfg := client.BatchPointsConfig{
+			Database:        bp.Database(),
+			RetentionPolicy: bp.RetentionPolicy(),
+			Precision:       bp.Precision(),
+		}
 
-			//write datas of every hour
+		newbp, err := client.NewBatchPoints(bpcfg)
+		if err != nil {
+			log.Error("Error on create BatchPoints: %s", err)
+			return nil
+		}
+		pointchunk := make([]*client.Point, splitnum)
+		init := i * splitnum
+		end := min((i+1)*splitnum, len)
+		log.Debugf("Splitting %s batchpoints into 50000  points chunks from %d to %d ", len, init, end)
+		copy(points[init:end], pointchunk)
+		newbp.AddPoints(pointchunk)
 
-			log.Debugf("processing Database %s Measurement %s from %d to %d", db, m, startsec, endsec)
-			getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-			batchpoints, np, err := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, sch)
+		ret = append(ret, newbp)
+
+	}
+	return ret
+}
+
+func WriteDB(c client.Client, bp client.BatchPoints) {
+
+	RWMaxRetries := MainConfig.General.RWMaxRetries
+	RWRetryDelay := MainConfig.General.RWRetryDelay
+
+	//spliting writtes max of 50k points
+	sbp := BpSplit(bp, 50000)
+
+	for k, b := range sbp {
+		err := try.Do(func(attempt int) (bool, error) {
+			s := time.Now()
+			err := c.Write(b)
+			elapsed := time.Since(s)
+			log.Debug("Write attempt [%d] took %s ", attempt, elapsed.String())
 			if err != nil {
-				return err
+				log.Warnf("Fail to write batchpoints to write database error Trying again... in %s : Error %s  ", RWRetryDelay.String(), err)
+				time.Sleep(RWRetryDelay) // wait a minute
 			}
-			totalpoints += np
-			log.Debugf("processed %d points", np)
-			WriteDB(dst.cli, batchpoints)
-
+			return attempt < RWMaxRetries, err
+		})
+		if err != nil {
+			log.Errorf("Max Retries  ( %d ) exceeded on  write to database in write chunk %d, Last error: %s", RWMaxRetries, k, err)
 		}
-		elapsed := time.Since(s)
-		log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points Took [%s]", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints, elapsed.String())
-
 	}
 
-	log.Printf("Copy data from %s[%s|%s] to %s[%s|%s] has done!\n", src.cfg.Name, db, rp.Name, dst.cfg.Name, db, rp.Name)
-	return nil
-}*/
+}
 
 func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
 
@@ -548,7 +572,7 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEp
 		}
 
 		elapsed := time.Since(s)
-		log.Infof("Processed Chunk [%d] from [%d][%s] to [%d][%s] (%d) Points Took [%s]", i, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints, elapsed.String())
+		log.Infof("Processed Chunk [%d/%d](%d%%) from [%d][%s] to [%d][%s] (%d) Points Took [%s]", i, hLength, 100*i/hLength, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints, elapsed.String())
 
 	}
 
