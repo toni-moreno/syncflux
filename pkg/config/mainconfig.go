@@ -22,6 +22,7 @@ type GeneralConfig struct {
 	MaxRetentionInterval time.Duration `mapstructure:"max-retention-interval"`
 	RWMaxRetries         int           `mapstructure:"rw-max-retries"`
 	RWRetryDelay         time.Duration `mapstructure:"rw-retry-delay"`
+	NumWorkers           int           `mapstructure:"num-workers"`
 }
 
 //SelfMonConfig configuration for self monitoring

@@ -55,6 +55,8 @@ var (
 	processWg sync.WaitGroup
 
 	Cluster *HACluster
+
+	MaxWorkers int
 )
 
 // SetLogger sets the current log output.

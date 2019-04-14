@@ -22,13 +22,13 @@ func NewAPI(m *macaron.Macaron) error {
 }
 
 func HealthCluster(ctx *Context) {
-	log.Info("/healthcluster")
+	log.Info("API: /healthcluster")
 
 	ctx.JSON(200, agent.Cluster.GetStatus())
 }
 
 func QueryActive(ctx *Context) {
-	log.Info("/queryactive")
+	log.Info("API: /queryactive")
 
 	status := agent.Cluster.GetStatus()
 

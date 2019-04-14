@@ -199,54 +199,18 @@ func (hac *HACluster) checkCluster() {
 	lastMaster, lastmaOK, durationM := hac.Master.GetState()
 	lastSlave, lastslOK, durationS := hac.Slave.GetState()
 
+	// STATES
+	// ALL OK
+	// DETECTED SLAVE DONW
+	// STILL DOWN
+	// DETECTED UP
+	// RECOVERING
+
 	log.Info("HACluster check....")
-	if hac.ClusterState == "RECOVERING" {
-		log.Infof("HACluster: Database Still recovering")
 
-		hac.statsData.Lock()
-		hac.MasterStateOK = lastMaster
-		hac.MasterLastOK = lastmaOK
-		hac.MasterCheckDuration = durationM
-		hac.SlaveLastOK = lastslOK
-		hac.SlaveStateOK = lastSlave
-		hac.SlaveCheckDuration = durationS
-		hac.statsData.Unlock()
-		return
-	}
-
-	if hac.ClusterState == "CHECK_SLAVE_DOWN" && lastSlave == true {
-		log.Infof("HACLuster: detected UP Last(%s) Duratio OK (%s) RECOVERING", lastslOK.String(), durationS.String())
-		// service has been recovered is time to sincronize
-
-		hac.statsData.Lock()
-		hac.ClusterState = "RECOVERING"
-		hac.MasterStateOK = lastMaster
-		hac.MasterLastOK = lastmaOK
-		hac.MasterCheckDuration = durationM
-		hac.SlaveLastOK = lastslOK
-		hac.SlaveStateOK = lastSlave
-		hac.SlaveCheckDuration = durationS
-		hac.statsData.Unlock()
-
-		startTime := hac.SlaveLastOK.Add(-hac.CheckInterval)
-		endTime := lastslOK
-
-		// after conection recover with de database the
-		// the client should be updated before any connection test
-		hac.Slave.UpdateCli()
-		// begin recover
-		start := time.Now()
-		hac.ReplicateData(hac.Schema, startTime, endTime)
-		elapsed := time.Since(start)
-		log.Printf("Recovering Took %s", elapsed.String())
-
-		hac.statsData.Lock()
-		hac.ClusterState = "OK"
-		hac.ClusterNumRecovers++
-		hac.ClusterLastRecoverDuration = elapsed
-		hac.statsData.Unlock()
-	}
-	if hac.SlaveStateOK && lastSlave != true {
+	switch {
+	//detected Down
+	case hac.SlaveStateOK && lastSlave != true:
 		log.Infof("HACLuster: detected DOWN Last(%s) Duratio OK (%s)", lastslOK.String(), durationS.String())
 		hac.statsData.Lock()
 		hac.ClusterState = "CHECK_SLAVE_DOWN"
@@ -257,6 +221,75 @@ func (hac *HACluster) checkCluster() {
 		hac.SlaveStateOK = lastSlave
 		hac.SlaveCheckDuration = durationS
 		hac.statsData.Unlock()
+		return
+	//still Down
+	case hac.ClusterState == "CHECK_SLAVE_DOWN" && lastSlave == false:
+		hac.statsData.Lock()
+		hac.MasterStateOK = lastMaster
+		hac.MasterLastOK = lastmaOK
+		hac.MasterCheckDuration = durationM
+		hac.statsData.Unlock()
+		return
+	// Detected UP
+	case hac.ClusterState == "CHECK_SLAVE_DOWN" && lastSlave == true:
+		log.Infof("HACLuster: detected UP Last(%s) Duratio OK (%s) RECOVERING", lastslOK.String(), durationS.String())
+		// service has been recovered is time to sincronize
+
+		hac.statsData.Lock()
+		startTime := hac.SlaveLastOK.Add(-hac.CheckInterval)
+
+		hac.ClusterState = "RECOVERING"
+		hac.MasterStateOK = lastMaster
+		hac.MasterLastOK = lastmaOK
+		hac.MasterCheckDuration = durationM
+		hac.SlaveLastOK = lastslOK
+		hac.SlaveStateOK = lastSlave
+		hac.SlaveCheckDuration = durationS
+		hac.statsData.Unlock()
+
+		endTime := lastslOK
+
+		// after conection recover with de database the
+		// the client should be updated before any connection test
+		hac.Slave.UpdateCli()
+		// begin recover
+		log.Infof("HACLUSTER: INIT RECOVERY : FROM [ %s ] TO [ %s ]", startTime.String(), endTime.String())
+		start := time.Now()
+		hac.ReplicateData(hac.Schema, startTime, endTime)
+		elapsed := time.Since(start)
+		log.Infof("HACLUSTER: DATA SYNCRONIZATION Took %s", elapsed.String())
+
+		hac.statsData.Lock()
+		hac.ClusterState = "OK"
+		hac.ClusterNumRecovers++
+		hac.ClusterLastRecoverDuration = elapsed
+		hac.statsData.Unlock()
+		return
+	//Detected Recover
+	case hac.ClusterState == "RECOVERING":
+		log.Infof("HACluster: Database Still recovering")
+		hac.statsData.Lock()
+		hac.MasterStateOK = lastMaster
+		hac.MasterLastOK = lastmaOK
+		hac.MasterCheckDuration = durationM
+		hac.SlaveLastOK = lastslOK
+		hac.SlaveStateOK = lastSlave
+		hac.SlaveCheckDuration = durationS
+		hac.statsData.Unlock()
+		return
+	case hac.ClusterState == "OK" && lastSlave == true:
+		hac.statsData.Lock()
+		hac.MasterStateOK = lastMaster
+		hac.MasterLastOK = lastmaOK
+		hac.MasterCheckDuration = durationM
+		hac.SlaveLastOK = lastslOK
+		hac.SlaveStateOK = lastSlave
+		hac.SlaveCheckDuration = durationS
+		hac.statsData.Unlock()
+	default:
+		log.Warnf("HACLUSTER: undhanled State Last MasterOK %t %s", lastMaster, lastmaOK.String())
+		log.Warnf("HACLUSTER: undhanled State Last SlaveOK %t %s", lastSlave, lastslOK.String())
+		return
 	}
 
 }

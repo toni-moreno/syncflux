@@ -5,8 +5,10 @@ import (
 	"strconv"
 
 	"encoding/json"
+	"github.com/gammazero/workerpool"
 	"github.com/influxdata/influxdb1-client/v2"
 	"github.com/toni-moreno/syncflux/pkg/agent/try"
+	"sync/atomic"
 	"time"
 )
 
@@ -336,7 +338,7 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 		s := time.Now()
 		response, qerr = c.Query(q)
 		elapsed := time.Since(s)
-		log.Debug("Query [%s] took %s ", cmd, elapsed.String())
+		log.Debugf("Query [%s] took %s ", cmd, elapsed.String())
 		if qerr != nil {
 			log.Warnf("Fail to get response from query in attempt %d / read database error: %s", attempt, qerr)
 			log.Warnf("Trying again... in %s sec", RWRetryDelay.String())
@@ -507,7 +509,7 @@ func WriteDB(c client.Client, bp client.BatchPoints) {
 			s := time.Now()
 			err := c.Write(b)
 			elapsed := time.Since(s)
-			log.Debug("Write attempt [%d] took %s ", attempt, elapsed.String())
+			log.Debugf("Write attempt [%d] took %s ", attempt, elapsed.String())
 			if err != nil {
 				log.Warnf("Fail to write batchpoints to write database error Trying again... in %s : Error %s  ", RWRetryDelay.String(), err)
 				time.Sleep(RWRetryDelay) // wait a minute
@@ -545,38 +547,53 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, db string, rp *RetPol, sEp
 
 	chunkSecond = int64(chunk.Seconds())
 
+	log.Debugf("SYNC-DB-RP[%s|%s] From:%s To:%s | Duration: %s || #chunks: %d  | chunk Duration %s ", db, rp.Name, sEpoch.String(), eEpoch.String(), duration.String(), hLength, chunk.String())
+
 	var i int64
+	var dbpoints int64
+	dbs := time.Now()
+
 	for i = 0; i < hLength; i++ {
-		s := time.Now()
+		wp := workerpool.New(MainConfig.General.NumWorkers)
+		defer wp.Stop()
+		chs := time.Now()
 		//sync from newer to older data
 		endsec := eEpoch.Unix() - (i * chunkSecond)
 		startsec := eEpoch.Unix() - ((i + 1) * chunkSecond)
 		var totalpoints int64
 		totalpoints = 0
+
 		for m, sch := range dbschema.Ftypes {
-			log.Debugf("Processing measurement %s from DB  %s", m, db)
-			log.Tracef("Processing measurement %s with schema #%+v", m, sch)
 
+			m := m
+			sch := sch
+
+			//add to the worker pool
+			wp.Submit(func() {
+				log.Tracef("Processing measurement %s with schema #%+v", m, sch)
+				log.Debugf("processing Database %s Measurement %s from %d to %d", db, m, startsec, endsec)
+				getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
+				batchpoints, np, err := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, sch)
+				if err != nil {
+					log.Errorf("error in read %s", err)
+					return
+					//return err
+				}
+				atomic.AddInt64(&totalpoints, np)
+				//totalpoints += np
+				log.Debugf("processed %d points", np)
+				WriteDB(dst.cli, batchpoints)
+			})
 			//write datas of every hour
-
-			log.Debugf("processing Database %s Measurement %s from %d to %d", db, m, startsec, endsec)
-			getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-			batchpoints, np, err := ReadDB(src.cli, db, rp.Name, db, rp.Name, getvalues, sch)
-			if err != nil {
-				return err
-			}
-			totalpoints += np
-			log.Debugf("processed %d points", np)
-			WriteDB(dst.cli, batchpoints)
-
 		}
-
-		elapsed := time.Since(s)
-		log.Infof("Processed Chunk [%d/%d](%d%%) from [%d][%s] to [%d][%s] (%d) Points Took [%s]", i, hLength, 100*i/hLength, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints, elapsed.String())
+		wp.StopWait()
+		chunkElapsed := time.Since(chs)
+		dbpoints += totalpoints
+		log.Infof("Processed Chunk [%d/%d](%d%%) from [%d][%s] to [%d][%s] (%d) Points Took [%s]", i+1, hLength, 100*(i+1)/hLength, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints, chunkElapsed.String())
 
 	}
-
-	log.Printf("Copy data from %s[%s|%s] to %s[%s|%s] has done!\n", src.cfg.Name, db, rp.Name, dst.cfg.Name, db, rp.Name)
+	dbElapsed := time.Since(dbs)
+	log.Printf("Processed DB data from %s[%s|%s] to %s[%s|%s] has done  #Points (%d)  Took [%s] !\n", src.cfg.Name, db, rp.Name, dst.cfg.Name, db, rp.Name, dbpoints, dbElapsed.String())
 
 	return nil
 }

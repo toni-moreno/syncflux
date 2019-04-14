@@ -73,7 +73,7 @@ func (im *InfluxMonitor) InitPing() (client.Client, time.Duration, string, error
 
 	response, err4 := con.Query(q)
 	if err4 == nil && response.Error() == nil {
-		log.Debugf("SHOW DATABASES: %+v", response.Results)
+		log.Tracef("SHOW DATABASES On InitPint: %+v", response.Results)
 		im.lastcli = con
 		return con, dur, ver, nil
 	} else {
@@ -87,7 +87,7 @@ func (im *InfluxMonitor) InitPing() (client.Client, time.Duration, string, error
 		}
 
 	}
-	log.Debugf("SHOW DATABASES: %+v", response.Results)
+	log.Tracef("SHOW DATABASES On InitPing: %+v", response.Results)
 	im.lastcli = con
 	return con, dur, ver, nil
 }
@@ -151,10 +151,10 @@ func (im *InfluxMonitor) Ping() (time.Duration, string, error) {
 func (im *InfluxMonitor) GetStat() {
 	_, dur, ver, err := im.InitPing()
 	if err != nil {
-		log.Warnf("InfluxDB : %s  NO OK (Error :%s )", im.cfg.Name, err)
+		log.Warnf("InfluxMonitor: InfluxDB : %s  NO OK (Error :%s )", im.cfg.Name, err)
 		im.setStatError()
 	} else {
-		log.Infof("InfluxDB : %s  OK (Version  %s : Duration %s )", im.cfg.Name, ver, dur.String())
+		log.Infof("InfluxMonitor: InfluxDB : %s  OK (Version  %s : Duration %s )", im.cfg.Name, ver, dur.String())
 		im.setStatOK(dur, ver)
 	}
 }
