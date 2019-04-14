@@ -37,7 +37,7 @@ var (
 	action       = "hamonitor"
 	master       string
 	slave        string
-	actiondb     = "all"
+	actiondb     = ".*"
 	starttimestr string
 	starttime    = time.Now().Add(-3600 * 24)
 	endtimestr   string
