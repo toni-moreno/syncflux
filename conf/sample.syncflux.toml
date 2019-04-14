@@ -118,7 +118,11 @@
 #  the query will be repeated at leas rw-max-retries and we can force a pause from at least rw-retry-delay
  
  rw-retry-delay = "10s"
- 
+
+# Num paralel  workers querying and writting at time on both databases (master & slave)
+# 
+
+ num-workers = 4
 
 # ---- HTTP API SECTION (Only valid on hamonitor action)
 # Enables an HTTP API endpoint to check the cluster health
