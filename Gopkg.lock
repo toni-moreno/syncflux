@@ -27,6 +27,22 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:fe1f5a8a2884a361b21421c8a07df5f1a66ce7171904235bad427659a42b0d70"
+  name = "github.com/gammazero/deque"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2afb3858e9c73b567e0e05ea79906f4e1138bd4e"
+
+[[projects]]
+  branch = "master"
+  digest = "1:56d108880235425ce767421db2ed706fd4a164cc1507a2e7ecd7b85e009b23d6"
+  name = "github.com/gammazero/workerpool"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "88d534f22b564446dfea98776bf4ba1c1820b526"
+
+[[projects]]
+  branch = "master"
   digest = "1:2c70cb4f416b5badad7248e6a169047657c9288db3966b15eb1ddf75ca1cf3cd"
   name = "github.com/go-macaron/binding"
   packages = ["."]
@@ -78,10 +94,9 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:349f5c565b361db494f28a9c137bb74c21b07fbcf43f7ca171564be2de288d0f"
+  digest = "1:50708c8fc92aec981df5c446581cf9f90ba9e2a5692118e0ce75d4534aaa14a2"
   name = "github.com/influxdata/influxdb1-client"
   packages = [
-    ".",
     "models",
     "pkg/escape",
     "v2",
@@ -224,10 +239,10 @@
   analyzer-version = 1
   input-imports = [
     "github.com/Sirupsen/logrus",
+    "github.com/gammazero/workerpool",
     "github.com/go-macaron/binding",
     "github.com/go-macaron/session",
     "github.com/go-macaron/toolbox",
-    "github.com/influxdata/influxdb1-client",
     "github.com/influxdata/influxdb1-client/v2",
     "github.com/spf13/viper",
     "gopkg.in/macaron.v1",

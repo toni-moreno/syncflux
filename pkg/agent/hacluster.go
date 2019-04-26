@@ -7,10 +7,12 @@ import (
 )
 
 type InfluxSchDb struct {
-	Name   string
-	DefRp  string
-	Rps    []*RetPol
-	Ftypes map[string]map[string]string
+	Name     string
+	NewName  string
+	DefRp    string
+	NewDefRp string
+	Rps      []*RetPol
+	Ftypes   map[string]map[string]string
 }
 
 type HACluster struct {
@@ -114,7 +116,7 @@ func (hac *HACluster) GetSchema(dbfilter string) ([]*InfluxSchDb, error) {
 			mf[m] = GetFields(hac.Master.cli, db, m)
 		}
 		//
-		schema = append(schema, &InfluxSchDb{Name: db, DefRp: defaultRp.Name, Rps: rps, Ftypes: mf})
+		schema = append(schema, &InfluxSchDb{Name: db, NewName: db, DefRp: defaultRp.Name, NewDefRp: defaultRp.Name, Rps: rps, Ftypes: mf})
 	}
 	hac.Schema = schema
 	return schema, nil
@@ -129,27 +131,34 @@ func (hac *HACluster) ReplicateSchema(schema []*InfluxSchDb) error {
 		for _, rp := range db.Rps {
 			if rp.Def {
 				defaultRp = rp
+				defaultRp.Name = db.NewDefRp
 				break
 			}
 		}
-		crdberr := CreateDB(hac.Slave.cli, db.Name, defaultRp)
+
+		crdberr := CreateDB(hac.Slave.cli, db.NewName, defaultRp)
+
 		if crdberr != nil {
 			log.Errorf("Error on Create DB  %s on SlaveDB %s : Error: %s", db, hac.Slave.cfg.Name, crdberr)
-			continue
+			//continue
 		}
 		for _, rp := range db.Rps {
 			if rp.Def {
 				// default has been previously created
-				continue
+				// Ensure its default
+				alrperr := SetDefaultRP(hac.Slave.cli, db.NewName, defaultRp)
+				if alrperr != nil {
+					log.Errorf("Error on Altern Retention Policies on Database %s SlaveDB %s : Error: %s", db, hac.Slave.cfg.Name, alrperr)
+				}
+				//continue
 			}
 			log.Infof("Creating Extra Retention Policy %s on database %s ", rp.Name, db)
-			crrperr := CreateRP(hac.Slave.cli, db.Name, rp)
+			crrperr := CreateRP(hac.Slave.cli, db.NewName, rp)
 			if crrperr != nil {
 				log.Errorf("Error on Create Retention Policies on Database %s SlaveDB %s : Error: %s", db, hac.Slave.cfg.Name, crrperr)
 				continue
 			}
 			log.Infof("Replication Schema: DB %s OK", db)
-
 		}
 	}
 	return nil
@@ -159,10 +168,15 @@ func (hac *HACluster) ReplicateData(schema []*InfluxSchDb, start time.Time, end 
 	for _, db := range schema {
 		for _, rp := range db.Rps {
 			log.Infof("Replicating Data from DB %s RP %s...", db.Name, rp.Name)
+			//Need to check if the rp is the default, in that case must provide other name
+			rn := rp
+			if rp.Def {
+				rn.Name = db.NewDefRp
+			}
 			//log.Debugf("%s RP %s... SCHEMA %#+v.", db.Name, rp.Name, db)
-			err := SyncDBRP(hac.Master, hac.Slave, db.Name, rp, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
+			err := SyncDBRP(hac.Master, hac.Slave, db.Name, db.NewName, rp, rn, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
 			if err != nil {
-				log.Errorf("Data Replication error in DB [%s] RP [%s] | Error: %s", db, rp.Name, err)
+				log.Errorf("Data Replication error in DB [%s] RP [%s] | Error: %s", db, rn.Name, err)
 			}
 		}
 	}
@@ -174,10 +188,14 @@ func (hac *HACluster) ReplicateDataFull(schema []*InfluxSchDb) error {
 		for _, rp := range db.Rps {
 			log.Infof("Replicating Data from DB %s RP %s....", db.Name, rp.Name)
 			start, end := rp.GetFirstLastTime(hac.MaxRetentionInterval)
-			err := SyncDBRP(hac.Master, hac.Slave, db.Name, rp, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
+			rn := rp
+			if rp.Def {
+				rn.Name = db.NewDefRp
+			}
+			err := SyncDBRP(hac.Master, hac.Slave, db.Name, db.NewName, rp, rn, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
 			//err := SyncDBFull(hac.Master, hac.Slave, db.Name, rp, db, hac.ChunkDuration, hac.MaxRetentionInterval)
 			if err != nil {
-				log.Errorf("Data Replication error in DB [%s] RP [%s] | Error: %s", db, rp.Name, err)
+				log.Errorf("Data Replication error in DB [%s] RP [%s] | Error: %s", db, rn.Name, err)
 			}
 		}
 	}

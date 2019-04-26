@@ -68,7 +68,7 @@ will init a change autodetect webserver with angular-cli (ng serve) and also a a
 
 ## Basic Usage
 
-### set config file
+### Set config file
 
 
 ````toml
@@ -192,10 +192,180 @@ will init a change autodetect webserver with angular-cli (ng serve) and also a a
 
 ### Run as a Database replication Tool
 
-```bash
-./bin/syncflux -action copy -master influx01 -slave influx02 -start -10h end -5h
+Available actions:
+
+- Replicate Schema
+- Copy data
+- Full copy (replicate schema + copy data)
+
+
+#### Replicate schema
+
+Allows the user to copy DB schemas from DB1 to DB2. DB schema are DBs and RPs.
+
+
+**Syntax**
+ 
 ```
-This command will copy the complete database from influx01 to influx02 from 10h ago to 5 hours ago 
+./bin/syncflux -action replicaschema [-master <master_id>] [-slave <slave_id>] [-db <db_regex_selector>] [-newdb <newdb_name>] [-newrp <newrp_name>]
+```
+
+**Description of syntax**
+
+If no `master` or `slave` are provided it takes the default from config file. The db selector allows to filter with regex expression on all dbs.
+If the `slave` schema must be different than the `master`, the new schema can be set using `newdb` and `newrp` flags
+
+
+**Limitations**
+
+- Only the default RP can be renamed
+- If the RP already exist as non default RP on the new DB the new RP data won't be copied
+
+
+**Examples**
+
+*Example 1*: Copy schema from Influx01 to Influx02
+
+```bash
+Influx01 schema
+----------------
+
+  |-- db1
+    |-- rp1*
+    |-- rp2
+  |-- db2
+    |-- rp1*
+    |-- rp2
+```
+
+```bash
+./bin/syncflux -action "replicaschema" -master "influx01" -slave "influx02"
+```
+
+The result will be that the schema of Influx01 will be replicated on Influx02
+
+```bash
+Influx02 schema
+----------------
+  |-- db1
+    |-- rp1*
+    |-- rp2
+  |-- db2
+    |-- rp1*
+    |-- rp2
+```
+
+*Example 2*: Copy schema from Influx01-DB1 to Influx02
+
+```bash
+Influx01 schema
+----------------
+
+  |-- db1
+    |-- rp1*
+    |-- rp2
+  |-- db2
+    |-- rp1*
+    |-- rp2
+```
+
+```bash
+./bin/syncflux -action "replicaschema" -master "influx01" -slave "influx02" -db "^db1$"
+```
+
+The result will be that the schema of Influx01 will be replicated on Influx02
+
+```bash
+Influx02 schema
+----------------
+  |-- db1
+    |-- rp1*
+    |-- rp2
+```
+
+
+*Example 3*: Copy schema from Influx01-DB1 to Influx02-DB3 (new db called DB3)
+
+```
+Influx01 schema
+----------------
+
+  |-- db1
+    |-- rp1*
+    |-- rp2
+  |-- db2
+    |-- rp1*
+    |-- rp2
+```
+
+```bash
+./bin/syncflux -action "replicaschema" -master "influx01" -slave "influx02" -db "^db1$" -newdb "db3"
+```
+
+The result will be that the schema of Influx01 will be replicated on Influx02
+
+```bash
+Influx02 schema
+----------------
+  |-- db3
+    |-- rp1*
+    |-- rp2
+```
+
+*Example 4*: Copy schema from Influx01-DB1 to Influx02-DB3 (new db called DB3) and set the defaultrp to  rp3
+
+```bash
+Influx01 schema
+----------------
+
+  |-- db1
+    |-- rp1*
+    |-- rp2
+  |-- db2
+    |-- rp1*
+    |-- rp2
+```
+
+```bash
+./bin/syncflux -action "replicaschema" -master "influx01" -slave "influx02" -db "^db1$" -newdb "db3" -newrp "rp3"
+```
+
+The result will be that the schema of Influx01 will be replicated on Influx02
+
+```bash
+Influx02 schema
+----------------
+  |-- db3
+    |-- rp3*
+    |-- rp2
+```
+
+
+#### Copy data
+
+Allows the user to copy DB data from master to slave. DB schema are DBs and RPs.
+
+
+**Syntax**
+ 
+```
+./bin/syncflux -action copy [-master <master_id>] [-slave <slave_id>] [-db <db_regex_selector>] [-newdb <newdb_name>] [-newrp <newrp_name>] { [-start <start_time>] [-endtime <end_time>] , [-full] }
+```
+
+**Description of syntax**
+
+If no `master` or `slave` are provided it takes the default from config file. The db selector allows to filter with regex expression on all dbs.
+If the `slave` schema must be different than the `master`, the new schema can be set using `newdb` and `newrp` flags
+The `start` end `end` allow to define a time window to copy data. If `full` is passed, the data will be copied from now to `max-retention-interval`
+
+
+**Limitations**
+
+...
+
+**Examples**
+
+...
 
 ### Run as a HA Cluster monitor
 

@@ -144,7 +144,7 @@ func initCluster(master string, slave string) *HACluster {
 	}
 }
 
-func ReplSch(master string, slave string, dbs string) {
+func ReplSch(master string, slave string, dbs string, newdb string, newrp string) {
 
 	Cluster = initCluster(master, slave)
 
@@ -153,6 +153,19 @@ func ReplSch(master string, slave string, dbs string) {
 		log.Errorf("Can not copy data , error on get Schema: %s", err)
 		return
 	}
+
+	if len(newdb) > 0 && len(schema) > 0 {
+		for p := range schema {
+			schema[p].NewName = newdb
+		}
+	}
+
+	if len(newrp) > 0 && len(schema) > 0 {
+		for p := range schema {
+			schema[p].NewDefRp = newrp
+		}
+	}
+
 	s := time.Now()
 	Cluster.ReplicateSchema(schema)
 	elapsed := time.Since(s)
@@ -160,7 +173,7 @@ func ReplSch(master string, slave string, dbs string) {
 
 }
 
-func SchCopy(master string, slave string, dbs string, start time.Time, end time.Time, full bool) {
+func SchCopy(master string, slave string, dbs string, newdb string, newrp string, start time.Time, end time.Time, full bool) {
 
 	Cluster = initCluster(master, slave)
 
@@ -169,6 +182,19 @@ func SchCopy(master string, slave string, dbs string, start time.Time, end time.
 		log.Errorf("Can not copy data , error on get Schema: %s", err)
 		return
 	}
+
+	if len(newdb) > 0 && len(schema) > 0 {
+		for p := range schema {
+			schema[p].NewName = newdb
+		}
+	}
+
+	if len(newrp) > 0 && len(schema) > 0 {
+		for p := range schema {
+			schema[p].NewDefRp = newrp
+		}
+	}
+
 	s := time.Now()
 	Cluster.ReplicateSchema(schema)
 	if full {
@@ -181,7 +207,7 @@ func SchCopy(master string, slave string, dbs string, start time.Time, end time.
 
 }
 
-func Copy(master string, slave string, dbs string, start time.Time, end time.Time, full bool) {
+func Copy(master string, slave string, dbs string, newdb string, newrp string, start time.Time, end time.Time, full bool) {
 
 	Cluster = initCluster(master, slave)
 
@@ -190,6 +216,18 @@ func Copy(master string, slave string, dbs string, start time.Time, end time.Tim
 		log.Errorf("Can not copy data , error on get Schema: %s", err)
 		return
 	}
+
+	if len(newdb) > 0 && len(schema) > 0 {
+		for p := range schema {
+			schema[p].NewName = newdb
+		}
+	}
+	if len(newrp) > 0 && len(schema) > 0 {
+		for p := range schema {
+			schema[p].NewDefRp = newrp
+		}
+	}
+
 	s := time.Now()
 	if full {
 		Cluster.ReplicateDataFull(schema)
