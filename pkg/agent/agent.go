@@ -144,30 +144,7 @@ func initCluster(master string, slave string) *HACluster {
 	}
 }
 
-func ReplSch(master string, slave string, dbs string, newdb string) {
-
-	Cluster = initCluster(master, slave)
-
-	schema, err := Cluster.GetSchema(dbs)
-	if err != nil {
-		log.Errorf("Can not copy data , error on get Schema: %s", err)
-		return
-	}
-
-	if newdb != "" && len(schema) > 0 {
-		for p := range schema {
-			schema[p].Newname = newdb
-		}
-	}
-
-	s := time.Now()
-	Cluster.ReplicateSchema(schema)
-	elapsed := time.Since(s)
-	log.Infof("Replicate Schame take: %s", elapsed.String())
-
-}
-
-func SchCopy(master string, slave string, dbs string, newdb string, start time.Time, end time.Time, full bool) {
+func ReplSch(master string, slave string, dbs string, newdb string, newrp string) {
 
 	Cluster = initCluster(master, slave)
 
@@ -179,7 +156,42 @@ func SchCopy(master string, slave string, dbs string, newdb string, start time.T
 
 	if len(newdb) > 0 && len(schema) > 0 {
 		for p := range schema {
-			schema[p].Newname = newdb
+			schema[p].NewName = newdb
+		}
+	}
+
+	if len(newrp) > 0 && len(schema) > 0 {
+		for p := range schema {
+			schema[p].NewDefRp = newrp
+		}
+	}
+
+	s := time.Now()
+	Cluster.ReplicateSchema(schema)
+	elapsed := time.Since(s)
+	log.Infof("Replicate Schame take: %s", elapsed.String())
+
+}
+
+func SchCopy(master string, slave string, dbs string, newdb string, newrp string, start time.Time, end time.Time, full bool) {
+
+	Cluster = initCluster(master, slave)
+
+	schema, err := Cluster.GetSchema(dbs)
+	if err != nil {
+		log.Errorf("Can not copy data , error on get Schema: %s", err)
+		return
+	}
+
+	if len(newdb) > 0 && len(schema) > 0 {
+		for p := range schema {
+			schema[p].NewName = newdb
+		}
+	}
+
+	if len(newrp) > 0 && len(schema) > 0 {
+		for p := range schema {
+			schema[p].NewDefRp = newrp
 		}
 	}
 
@@ -195,7 +207,7 @@ func SchCopy(master string, slave string, dbs string, newdb string, start time.T
 
 }
 
-func Copy(master string, slave string, dbs string, newdb string, start time.Time, end time.Time, full bool) {
+func Copy(master string, slave string, dbs string, newdb string, newrp string, start time.Time, end time.Time, full bool) {
 
 	Cluster = initCluster(master, slave)
 
@@ -207,7 +219,12 @@ func Copy(master string, slave string, dbs string, newdb string, start time.Time
 
 	if len(newdb) > 0 && len(schema) > 0 {
 		for p := range schema {
-			schema[p].Newname = newdb
+			schema[p].NewName = newdb
+		}
+	}
+	if len(newrp) > 0 && len(schema) > 0 {
+		for p := range schema {
+			schema[p].NewDefRp = newrp
 		}
 	}
 

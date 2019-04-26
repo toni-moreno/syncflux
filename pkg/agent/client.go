@@ -132,6 +132,29 @@ func CreateRP(con client.Client, db string, rp *RetPol) error {
 	return nil
 }
 
+func SetDefaultRP(con client.Client, db string, rp *RetPol) error {
+
+	cmd := "ALTER RETENTION POLICY \"" + rp.Name + "\" ON " + db + " DEFAULT"
+
+	log.Debugf("Influx QUERY: %s", cmd)
+	q := client.Query{
+		Command: cmd,
+	}
+	response, err4 := con.Query(q)
+	if err4 == nil && response.Error() == nil {
+		log.Debugf("Altern Policy Creation response %#+v", response)
+		return nil
+	}
+	if err4 != nil {
+		return err4
+	}
+	if response.Error() != nil {
+		return response.Error()
+	}
+
+	return nil
+}
+
 func GetDataBases(con client.Client) ([]string, error) {
 	databases := []string{}
 	q := client.Query{
@@ -524,7 +547,7 @@ func WriteDB(c client.Client, bp client.BatchPoints) {
 
 }
 
-func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, rp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
+func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *RetPol, drp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
 
 	if dbschema == nil {
 		err := fmt.Errorf("DBSChema for DB %s is null", sdb)
@@ -548,7 +571,7 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, rp
 
 	chunkSecond = int64(chunk.Seconds())
 
-	log.Debugf("SYNC-DB-RP[%s|%s] From:%s To:%s | Duration: %s || #chunks: %d  | chunk Duration %s ", sdb, rp.Name, sEpoch.String(), eEpoch.String(), duration.String(), hLength, chunk.String())
+	log.Debugf("SYNC-DB-RP[%s|%s] From:%s To:%s | Duration: %s || #chunks: %d  | chunk Duration %s ", sdb, srp, sEpoch.String(), eEpoch.String(), duration.String(), hLength, chunk.String())
 
 	var i int64
 	var dbpoints int64
@@ -574,7 +597,7 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, rp
 				log.Tracef("Processing measurement %s with schema #%+v", m, sch)
 				log.Debugf("processing Database %s Measurement %s from %d to %d", sdb, m, startsec, endsec)
 				getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-				batchpoints, np, err := ReadDB(src.cli, sdb, rp.Name, ddb, rp.Name, getvalues, sch)
+				batchpoints, np, err := ReadDB(src.cli, sdb, srp.Name, ddb, drp.Name, getvalues, sch)
 				if err != nil {
 					log.Errorf("error in read %s", err)
 					return
@@ -594,7 +617,7 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, rp
 
 	}
 	dbElapsed := time.Since(dbs)
-	log.Printf("Processed DB data from %s[%s|%s] to %s[%s|%s] has done  #Points (%d)  Took [%s] !\n", src.cfg.Name, sdb, rp.Name, dst.cfg.Name, ddb, rp.Name, dbpoints, dbElapsed.String())
+	log.Printf("Processed DB data from %s[%s|%s] to %s[%s|%s] has done  #Points (%d)  Took [%s] !\n", src.cfg.Name, sdb, srp.Name, dst.cfg.Name, ddb, drp.Name, dbpoints, dbElapsed.String())
 
 	return nil
 }
