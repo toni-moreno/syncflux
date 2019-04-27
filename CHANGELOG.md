@@ -1,3 +1,7 @@
+# v 0.5.0 (2019-04-27)
+
+* added command line parameter -newdb to change database name and -newrp to change Retention policy name.
+
 # v 0.4.0 (2019-04-14)
 
 ## New features
