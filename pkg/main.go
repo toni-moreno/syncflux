@@ -38,6 +38,8 @@ var (
 	master       string
 	slave        string
 	actiondb     = ".*"
+	actionrp     = ".*"
+	actionmeas   = ".*"
 	newdb        string
 	newrp        string
 	starttimestr string
@@ -79,6 +81,8 @@ func flags() *flag.FlagSet {
 	f.StringVar(&master, "master", master, "choose master ID from all those in the config file where to get data (override the master-db parameter in the config file)")
 	f.StringVar(&slave, "slave", slave, "choose master ID from all those in the config file where to write data (override the slave-db parameter in the config file)")
 	f.StringVar(&actiondb, "db", actiondb, "set the db where to play")
+	f.StringVar(&actionrp, "rp", actionrp, "set the rp where to play")
+	f.StringVar(&actionmeas, "meas", actionmeas, "set the meas where to play")
 	f.StringVar(&newdb, "newdb", newdb, "set the db to work on")
 	f.StringVar(&newrp, "newrp", newrp, "set the rp to work on")
 	f.StringVar(&chunktimestr, "chunk", chunktimestr, "set RW chuck periods as in the data-chuck-duration config param")
@@ -289,12 +293,12 @@ func main() {
 		agent.HAMonitorStart(master, slave)
 		webui.WebServer("", httpPort, &agent.MainConfig.HTTP, agent.MainConfig.General.InstanceID)
 	case "copy":
-		agent.Copy(master, slave, actiondb, newdb, newrp, starttime, endtime, fulltime)
+		agent.Copy(master, slave, actiondb, newdb, actionrp, newrp, actionmeas, starttime, endtime, fulltime)
 	case "move":
 	case "replicaschema":
-		agent.ReplSch(master, slave, actiondb, newdb, newrp)
+		agent.ReplSch(master, slave, actiondb, newdb, actionrp, newrp, actionmeas)
 	case "fullcopy":
-		agent.SchCopy(master, slave, actiondb, newdb, newrp, starttime, endtime, fulltime)
+		agent.SchCopy(master, slave, actiondb, newdb, actionrp, newrp, actionmeas, starttime, endtime, fulltime)
 	default:
 		fmt.Printf("Unknown action: %s", action)
 	}

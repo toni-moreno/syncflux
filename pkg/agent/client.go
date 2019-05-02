@@ -232,10 +232,11 @@ func GetRetentionPolicies(con client.Client, db string) ([]*RetPol, error) {
 	return rparray, nil
 }
 
-func GetFields(c client.Client, sdb string, meas string) map[string]string {
-	ret := make(map[string]string)
+func GetFields(c client.Client, sdb string, meas string, defrp string) map[string]*FieldSch {
 
-	cmd := "show field keys from " + meas
+	fields := make(map[string]*FieldSch)
+
+	cmd := "show field keys from \"" + defrp + "\"." + meas
 	//get measurements from database
 	q := client.Query{
 		Command:  cmd,
@@ -258,16 +259,15 @@ func GetFields(c client.Client, sdb string, meas string) map[string]string {
 		for _, row := range values {
 			fieldname := row[0].(string)
 			fieldtype := row[1].(string)
-			ret[fieldname] = fieldtype
+			fields[fieldname] = &FieldSch{Name: fieldname, Type: fieldtype}
 			log.Debugf("Detected Field [%s] type [%s] on measurement [%s]", fieldname, fieldtype, meas)
 		}
 
 	}
-
-	return ret
+	return fields
 }
 
-func GetMeasurements(c client.Client, sdb string) []string {
+func GetMeasurements(c client.Client, sdb string, mesafilter string) []*MeasurementSch {
 
 	cmd := "show measurements"
 	//get measurements from database
@@ -276,7 +276,7 @@ func GetMeasurements(c client.Client, sdb string) []string {
 		Database: sdb,
 	}
 
-	var measurements []string
+	var measurements []*MeasurementSch
 
 	response, err := c.Query(q)
 	if err != nil {
@@ -297,7 +297,8 @@ func GetMeasurements(c client.Client, sdb string) []string {
 
 		for _, row := range values {
 			measurement := fmt.Sprintf("%v", row[0])
-			measurements = append(measurements, measurement)
+			measurements = append(measurements, &MeasurementSch{Name: measurement, Fields: nil})
+
 			time.Sleep(3 * time.Millisecond)
 		}
 
@@ -323,7 +324,7 @@ func StrUnixNano2Time(tstamp string) (time.Time, error) {
 	return time.Unix(sec, nsec), nil
 }
 
-func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string]string) (client.BatchPoints, int64, error) {
+func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string]*FieldSch) (client.BatchPoints, int64, error) {
 	var totalpoints int64
 	RWMaxRetries := MainConfig.General.RWMaxRetries
 	RWRetryDelay := MainConfig.General.RWRetryDelay
@@ -427,7 +428,7 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 							switch vt := val.(type) {
 							case json.Number:
 								tp := fieldmap[ser.Columns[i]]
-								switch tp {
+								switch tp.Type {
 								case "float":
 									conv, err := vt.Float64()
 									if err != nil {
@@ -587,8 +588,7 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, sr
 		var totalpoints int64
 		totalpoints = 0
 
-		for m, sch := range dbschema.Ftypes {
-
+		for m, sch := range dbschema.Measurements {
 			m := m
 			sch := sch
 
@@ -597,7 +597,7 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, sr
 				log.Tracef("Processing measurement %s with schema #%+v", m, sch)
 				log.Debugf("processing Database %s Measurement %s from %d to %d", sdb, m, startsec, endsec)
 				getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-				batchpoints, np, err := ReadDB(src.cli, sdb, srp.Name, ddb, drp.Name, getvalues, sch)
+				batchpoints, np, err := ReadDB(src.cli, sdb, srp.Name, ddb, drp.Name, getvalues, sch.Fields)
 				if err != nil {
 					log.Errorf("error in read %s", err)
 					return

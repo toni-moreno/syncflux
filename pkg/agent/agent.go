@@ -144,11 +144,11 @@ func initCluster(master string, slave string) *HACluster {
 	}
 }
 
-func ReplSch(master string, slave string, dbs string, newdb string, newrp string) {
+func ReplSch(master string, slave string, dbs string, newdb string, rps string, newrp string, meas string) {
 
 	Cluster = initCluster(master, slave)
 
-	schema, err := Cluster.GetSchema(dbs)
+	schema, err := Cluster.GetSchema(dbs, rps, meas)
 	if err != nil {
 		log.Errorf("Can not copy data , error on get Schema: %s", err)
 		return
@@ -173,11 +173,11 @@ func ReplSch(master string, slave string, dbs string, newdb string, newrp string
 
 }
 
-func SchCopy(master string, slave string, dbs string, newdb string, newrp string, start time.Time, end time.Time, full bool) {
+func SchCopy(master string, slave string, dbs string, newdb string, rps string, newrp string, meas string, start time.Time, end time.Time, full bool) {
 
 	Cluster = initCluster(master, slave)
 
-	schema, err := Cluster.GetSchema(dbs)
+	schema, err := Cluster.GetSchema(dbs, rps, meas)
 	if err != nil {
 		log.Errorf("Can not copy data , error on get Schema: %s", err)
 		return
@@ -207,11 +207,11 @@ func SchCopy(master string, slave string, dbs string, newdb string, newrp string
 
 }
 
-func Copy(master string, slave string, dbs string, newdb string, newrp string, start time.Time, end time.Time, full bool) {
+func Copy(master string, slave string, dbs string, newdb string, rps string, newrp string, meas string, start time.Time, end time.Time, full bool) {
 
 	Cluster = initCluster(master, slave)
 
-	schema, err := Cluster.GetSchema(dbs)
+	schema, err := Cluster.GetSchema(dbs, rps, meas)
 	if err != nil {
 		log.Errorf("Can not copy data , error on get Schema: %s", err)
 		return
@@ -243,7 +243,7 @@ func HAMonitorStart(master string, slave string) {
 
 	Cluster = initCluster(master, slave)
 
-	schema, _ := Cluster.GetSchema("")
+	schema, _ := Cluster.GetSchema("", "", "")
 
 	switch MainConfig.General.InitialReplication {
 	case "schema":

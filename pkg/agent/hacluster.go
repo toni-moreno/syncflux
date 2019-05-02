@@ -7,12 +7,22 @@ import (
 )
 
 type InfluxSchDb struct {
-	Name     string
-	NewName  string
-	DefRp    string
-	NewDefRp string
-	Rps      []*RetPol
-	Ftypes   map[string]map[string]string
+	Name         string
+	NewName      string
+	DefRp        string
+	NewDefRp     string
+	Rps          []*RetPol
+	Measurements map[string]*MeasurementSch
+}
+
+type MeasurementSch struct {
+	Name   string
+	Fields map[string]*FieldSch
+}
+
+type FieldSch struct {
+	Name string
+	Type string
 }
 
 type HACluster struct {
@@ -63,14 +73,18 @@ func (hac *HACluster) GetStatus() *ClusterStatus {
 }
 
 // From Master to Slave
-func (hac *HACluster) GetSchema(dbfilter string) ([]*InfluxSchDb, error) {
+func (hac *HACluster) GetSchema(dbfilter string, rpfilter string, measfilter string) ([]*InfluxSchDb, error) {
 
 	schema := []*InfluxSchDb{}
-	var filter *regexp.Regexp
+
+	var filterdb *regexp.Regexp
+	var filterrp *regexp.Regexp
+	var filtermeas *regexp.Regexp
+
 	var err error
 
 	if len(dbfilter) > 0 {
-		filter, err = regexp.Compile(dbfilter)
+		filterdb, err = regexp.Compile(dbfilter)
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +94,7 @@ func (hac *HACluster) GetSchema(dbfilter string) ([]*InfluxSchDb, error) {
 
 	for _, db := range srcDBs {
 
-		if len(dbfilter) > 0 && !filter.MatchString(db) {
+		if len(dbfilter) > 0 && !filterdb.MatchString(db) {
 			log.Debugf("Database %s not match to regex %s:  skipping.. ", db, dbfilter)
 			continue
 		}
@@ -92,12 +106,23 @@ func (hac *HACluster) GetSchema(dbfilter string) ([]*InfluxSchDb, error) {
 			continue
 		}
 
+		if len(rpfilter) > 0 {
+			filterrp, err = regexp.Compile(rpfilter)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		//check for default RP
 		var defaultRp *RetPol
+
 		for _, rp := range rps {
+			if len(rpfilter) > 0 && !filterrp.MatchString(rp.Name) {
+				log.Debugf("Retention policy %s not match to regex %s:  skipping.. ", rp.Name, rpfilter)
+				continue
+			}
 			if rp.Def {
 				defaultRp = rp
-				break
 			}
 		}
 
@@ -107,16 +132,29 @@ func (hac *HACluster) GetSchema(dbfilter string) ([]*InfluxSchDb, error) {
 			continue
 		}
 
-		meas := GetMeasurements(hac.Master.cli, db)
+		meas := GetMeasurements(hac.Master.cli, db, measfilter)
 
-		mf := make(map[string]map[string]string, len(meas))
+		if len(measfilter) > 0 {
+			filtermeas, err = regexp.Compile(measfilter)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		mf := make(map[string]*MeasurementSch, len(meas))
 
 		for _, m := range meas {
+
+			if len(measfilter) > 0 && !filtermeas.MatchString(m.Name) {
+				log.Debugf("Measurement %s not match to regex %s:  skipping.. ", m.Name, measfilter)
+				continue
+			}
+
 			log.Debugf("discovered measurement  %s on DB: %s", m, db)
-			mf[m] = GetFields(hac.Master.cli, db, m)
+			mf[m.Name] = m
+			mf[m.Name].Fields = GetFields(hac.Master.cli, db, m.Name, defaultRp.Name)
 		}
-		//
-		schema = append(schema, &InfluxSchDb{Name: db, NewName: db, DefRp: defaultRp.Name, NewDefRp: defaultRp.Name, Rps: rps, Ftypes: mf})
+		schema = append(schema, &InfluxSchDb{Name: db, NewName: db, DefRp: defaultRp.Name, NewDefRp: defaultRp.Name, Rps: rps, Measurements: mf})
 	}
 	hac.Schema = schema
 	return schema, nil
