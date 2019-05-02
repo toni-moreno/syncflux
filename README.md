@@ -207,7 +207,7 @@ Allows the user to copy DB schemas from DB1 to DB2. DB schema are DBs and RPs.
 ___Syntax___
  
 ```
-./bin/syncflux -action replicaschema [-master <master_id>] [-slave <slave_id>] [-db <db_regex_selector>] [-newdb <newdb_name>] [-newrp <newrp_name>]
+./bin/syncflux -action replicaschema [-master <master_id>] [-slave <slave_id>] [-db <db_regex_selector>] [-newdb <newdb_name>] [-rp <rp_regex_selector>] [-newrp <newrp_name>] [-meas <meas_regex_selector>]
 ```
 
 ___Description of syntax___
@@ -282,7 +282,7 @@ Influx02 schema
 ```
 
 
-*Example 3*: Copy schema from Influx01-DB1 to Influx02-DB3 (new db called DB3)
+*Example 3*: Copy schema from Influx01-DB1 to Influx02-DB3 (new db called DB3) and only from rp1
 
 ```
 Influx01 schema
@@ -297,7 +297,7 @@ Influx01 schema
 ```
 
 ```bash
-./bin/syncflux -action "replicaschema" -master "influx01" -slave "influx02" -db "^db1$" -newdb "db3"
+./bin/syncflux -action "replicaschema" -master "influx01" -slave "influx02" -db "^db1$" -newdb "db3" -rp "^rp1$"
 ```
 
 The result will be that the schema of Influx01 will be replicated on Influx02
@@ -307,10 +307,9 @@ Influx02 schema
 ----------------
   |-- db3
     |-- rp1*
-    |-- rp2
 ```
 
-*Example 4*: Copy schema from Influx01-DB1 to Influx02-DB3 (new db called DB3) and set the defaultrp to  rp3
+*Example 4*: Copy schema from Influx01-DB1 to Influx02-DB3 (new db called DB3) and set the defaultrp to rp3
 
 ```bash
 Influx01 schema
@@ -338,6 +337,23 @@ Influx02 schema
     |-- rp2
 ```
 
+*Example 5*: Copy data and schema from Influx01-DB1 to Influx02-DB3 (new db called DB3) and only from meas "cpu.*"
+
+```bash
+Influx01 schema
+----------------
+
+  |-- db1
+    |-- rp1*
+      |-- cpu
+      |-- mem
+      |-- swap
+      |-- ...
+    |-- rp2
+  |-- db2
+    |-- rp1*
+    |-- rp2
+```
 
 #### Copy data
 
@@ -347,7 +363,7 @@ Allows the user to copy DB data from master to slave. DB schema are DBs and RPs.
 ___Syntax___
  
 ```
-./bin/syncflux -action copy [-master <master_id>] [-slave <slave_id>] [-db <db_regex_selector>] [-newdb <newdb_name>] [-newrp <newrp_name>] { [-start <start_time>] [-endtime <end_time>] , [-full] }
+./bin/syncflux -action copy [-master <master_id>] [-slave <slave_id>] [-db <db_regex_selector>] [-newdb <newdb_name>] [-rp <rp_regex_selector>] [-newrp <newrp_name>] [-meas <meas_regex_selector>] { [-start <start_time>] [-endtime <end_time>] , [-full] }
 ```
 
 ___Description of syntax___
@@ -397,7 +413,7 @@ Influx02 schema
 ```
 
 
-*Example 2*: Copy data from Influx01-DB1 to Influx02 on a time window
+*Example 2*: Copy data from Influx01-DB1 to Influx02 on a time window and only from rp1
 
 ```bash
 Influx01 schema
@@ -412,10 +428,10 @@ Influx01 schema
 ```
 
 ```bash
-./bin/syncflux -action "copy" -master "influx01" -slave "influx02" -db "^db1$" -start -10h end -5h
+./bin/syncflux -action "copy" -master "influx01" -slave "influx02" -db "^db1$" -rp "^rp1$" -start -10h end -5h
 ```
 
-The command above will repicate  all data from Influx01 to InfluxDB but only from db1 and with a time window from -10h to -5h
+The command above will repicate all data from Influx01 to InfluxDB but only from db1.rp1 and with a time window from -10h to -5h
 
 ```bash
 Influx02 schema
@@ -482,6 +498,40 @@ Influx02 schema
     |-- rp2
 ```
 
+*Example 5*: Copy data from Influx01-DB1 to Influx02-DB3 (new db called DB3) and only from meas "cpu.*"
+
+```bash
+Influx01 schema
+----------------
+
+  |-- db1
+    |-- rp1*
+      |-- cpu
+      |-- mem
+      |-- swap
+      |-- ...
+    |-- rp2
+  |-- db2
+    |-- rp1*
+    |-- rp2
+```
+
+
+```bash
+./bin/syncflux -action "copy" -master "influx01" -slave "influx02" -db "^db1$" -newdb "db3" -mes "cpu.*"
+```
+
+The command above will replicate all data from Influx01-db1 to InfluxDB on a new DB called 'db3' and a new defaultrp called rp3
+
+```bash
+Influx02 schema
+----------------
+  |-- db3
+    |-- rp3*
+      |-- cpu
+    |-- rp2
+```
+
 #### Copy data + schema
 
 Allows the user to copy DB data from master to slave. DB schema are DBs and RPs.
@@ -490,7 +540,7 @@ Allows the user to copy DB data from master to slave. DB schema are DBs and RPs.
 ___Syntax___
  
 ```
-./bin/syncflux -action fullcopy [-master <master_id>] [-slave <slave_id>] [-db <db_regex_selector>] [-newdb <newdb_name>] [-newrp <newrp_name>] { [-start <start_time>] [-endtime <end_time>] , [-full] }
+./bin/syncflux -action fullcopy [-master <master_id>] [-slave <slave_id>] [-db <db_regex_selector>] [-newdb <newdb_name>] [-rp <rp_regex_selector>] [-newrp <newrp_name>] [-meas <meas_regex_selector>] { [-start <start_time>] [-endtime <end_time>] , [-full] }
 ```
 
 ___Description of syntax___
@@ -628,7 +678,39 @@ Influx02 schema
     |-- rp2
 ```
 
+*Example 5*: Copy data and schema from Influx01-DB1 to Influx02-DB3 (new db called DB3) and only from meas "cpu.*"
 
+```bash
+Influx01 schema
+----------------
+
+  |-- db1
+    |-- rp1*
+      |-- cpu
+      |-- mem
+      |-- swap
+      |-- ...
+    |-- rp2
+  |-- db2
+    |-- rp1*
+    |-- rp2
+```
+
+
+```bash
+./bin/syncflux -action "copy" -master "influx01" -slave "influx02" -db "^db1$" -newdb "db3" -mes "cpu.*"
+```
+
+The command above will create the schema and will replicate all data from Influx01-db1 to InfluxDB on a new DB called 'db3' and a new defaultrp called rp3
+
+```bash
+Influx02 schema
+----------------
+  |-- db3
+    |-- rp3*
+      |-- cpu
+    |-- rp2
+```
 
 ### Run as a HA Cluster monitor
 
