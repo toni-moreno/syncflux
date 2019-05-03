@@ -376,7 +376,7 @@ The `start` end `end` allow to define a time window to copy data. If `full` is p
 
 ___Limitations___
 
-- If the RP already exist as non default RP on the new DB the new RP data won't be copied
+- ...
 
 ___Examples___
 
@@ -553,7 +553,6 @@ The `start` end `end` allow to define a time window to copy data. If `full` is p
 
 ___Limitations___
 
-- If the RP already exist as non default RP on the new DB the new RP data won't be copied
 - Only the default RP can be renamed
 
 

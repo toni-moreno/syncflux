@@ -19,6 +19,7 @@ type RetPol struct {
 	ShardGroupDuration time.Duration
 	NReplicas          int64
 	Def                bool
+	Measurements       map[string]*MeasurementSch
 }
 
 func (rp *RetPol) GetFirstLastTime(max time.Duration) (time.Time, time.Time) {
@@ -232,15 +233,16 @@ func GetRetentionPolicies(con client.Client, db string) ([]*RetPol, error) {
 	return rparray, nil
 }
 
-func GetFields(c client.Client, sdb string, meas string, defrp string) map[string]*FieldSch {
+func GetFields(c client.Client, sdb string, meas string, rp string) map[string]*FieldSch {
 
 	fields := make(map[string]*FieldSch)
 
-	cmd := "show field keys from \"" + defrp + "\"." + meas
+	cmd := "show field keys from " + meas
 	//get measurements from database
 	q := client.Query{
-		Command:  cmd,
-		Database: sdb,
+		Command:         cmd,
+		Database:        sdb,
+		RetentionPolicy: rp,
 	}
 
 	response, err := c.Query(q)
@@ -267,13 +269,14 @@ func GetFields(c client.Client, sdb string, meas string, defrp string) map[strin
 	return fields
 }
 
-func GetMeasurements(c client.Client, sdb string, mesafilter string) []*MeasurementSch {
+func GetMeasurements(c client.Client, sdb string, rp string, mesafilter string) []*MeasurementSch {
 
 	cmd := "show measurements"
 	//get measurements from database
 	q := client.Query{
-		Command:  cmd,
-		Database: sdb,
+		Command:         cmd,
+		Database:        sdb,
+		RetentionPolicy: rp,
 	}
 
 	var measurements []*MeasurementSch
@@ -588,7 +591,7 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, sr
 		var totalpoints int64
 		totalpoints = 0
 
-		for m, sch := range dbschema.Measurements {
+		for m, sch := range srp.Measurements {
 			m := m
 			sch := sch
 
