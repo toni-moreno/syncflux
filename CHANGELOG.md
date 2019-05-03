@@ -1,3 +1,13 @@
+# v 0.6.0 (unreleased)
+
+## New features
+
+* added command line parameters -rp and -meas to filter rps and measurements (implement #3)
+
+## fixes
+
+* enhanced logic to solve rp name limitations
+
 # v 0.5.0 (2019-04-27)
 
 * added command line parameter -newdb to change database name and -newrp to change Retention policy name.
