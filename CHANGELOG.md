@@ -1,4 +1,4 @@
-# v 0.6.0 (unreleased)
+# v 0.6.0 (2019-05-08)
 
 ## New features
 
