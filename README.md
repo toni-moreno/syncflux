@@ -1,6 +1,6 @@
 # SyncFlux 
 
-SyncFlux is an Open Source InfluxDB  Data syncronization and replication tool with HTTP API Interface which has as main goal recover lost data from any  handmade HA influxDB 1.X cluster ( made as any simple relay  https://github.com/influxdata/influxdb-relay )  
+SyncFlux is an Open Source InfluxDB  Data syncronization and replication tool with HTTP API Interface which has as main goal recover lost data from any  handmade HA influxDB 1.X cluster ( made as any simple relay  https://github.com/influxdata/influxdb-relay or our Smart Relay http://github.com/toni-moreno/influxdb-srelay )  
 
 
 ## Intall from precompiled packages
@@ -52,7 +52,7 @@ go run build.go latest
 To execute without any configuration you need a minimal config.toml file on the conf directory.
 
 ```bash
-cp conf/sample.synflux.toml conf/syncflux.toml
+cp conf/sample.syncflux.toml conf/syncflux.toml
 ./bin/syncflux [options]
 ```
 
@@ -153,7 +153,7 @@ will init a change autodetect webserver with angular-cli (ng serve) and also a a
  # monitor-retry-durtion 
  #
  # syncflux only can begin work when master and slave database are both up, 
- # if some of them is down synflux will retry infinitely each monitor-retry-duration to work.
+ # if some of them is down syncflux will retry infinitely each monitor-retry-duration to work.
  monitor-retry-interval = "1m"
 
  # 
