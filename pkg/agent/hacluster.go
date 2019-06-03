@@ -319,6 +319,10 @@ func (hac *HACluster) checkCluster() {
 		// begin recover
 		log.Infof("HACLUSTER: INIT RECOVERY : FROM [ %s ] TO [ %s ]", startTime.String(), endTime.String())
 		start := time.Now()
+		//refresh schema
+		log.Infof("HACLUSTER: INIT REFRESH SCHEMA")
+		hac.Schema, _ = hac.GetSchema("", "", "")
+		log.Infof("HACLUSTER: INIT REPLICATION DATA PROCESS")
 		hac.ReplicateData(hac.Schema, startTime, endTime)
 		elapsed := time.Since(start)
 		log.Infof("HACLUSTER: DATA SYNCRONIZATION Took %s", elapsed.String())
