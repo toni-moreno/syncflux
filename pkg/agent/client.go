@@ -368,7 +368,7 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 		elapsed := time.Since(s)
 		log.Debugf("Query [%s] took %s ", cmd, elapsed.String())
 		if qerr != nil {
-			log.Warnf("Fail to get response from query in attempt %d / read database error: %s", attempt, qerr)
+			log.Warnf("Fail to get response from query %s on [%s|%s] in attempt %d / read database error: %s", cmd, sdb, srp, attempt, qerr)
 			log.Warnf("Trying again... in %s sec", RWRetryDelay.String())
 			time.Sleep(RWRetryDelay) // wait a minute
 		}
@@ -575,7 +575,8 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, sr
 
 	chunkSecond = int64(chunk.Seconds())
 
-	log.Debugf("SYNC-DB-RP[%s|%s] From:%s To:%s | Duration: %s || #chunks: %d  | chunk Duration %s ", sdb, srp, sEpoch.String(), eEpoch.String(), duration.String(), hLength, chunk.String())
+	log.Debugf("SYNC-DB-RP[%s|%s] From:%s To:%s | Duration: %s || #chunks: %d  | chunk Duration %s ", sdb, srp.Name, sEpoch.String(), eEpoch.String(), duration.String(), hLength, chunk.String())
+	log.Tracef("SYNC-DB-RP Schema: %s  ", srp)
 
 	var i int64
 	var dbpoints int64
@@ -590,7 +591,7 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, sr
 		startsec := eEpoch.Unix() - ((i + 1) * chunkSecond)
 		var totalpoints int64
 		totalpoints = 0
-
+		log.Debugf("Detected %d measurements on %s|%s", len(srp.Measurements), sdb, srp.Name)
 		for m, sch := range srp.Measurements {
 			m := m
 			sch := sch
