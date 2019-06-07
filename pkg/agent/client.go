@@ -524,7 +524,7 @@ func BpSplit(bp client.BatchPoints, splitnum int) []client.BatchPoints {
 	return ret
 }
 
-func WriteDB(c client.Client, bp client.BatchPoints) {
+func WriteDB(c client.Client, bp client.BatchPoints) error {
 
 	RWMaxRetries := MainConfig.General.RWMaxRetries
 	RWRetryDelay := MainConfig.General.RWRetryDelay
@@ -546,9 +546,10 @@ func WriteDB(c client.Client, bp client.BatchPoints) {
 		})
 		if err != nil {
 			log.Errorf("Max Retries  ( %d ) exceeded on  write to database in write chunk %d, Last error: %s", RWMaxRetries, k, err)
+			return err
 		}
 	}
-
+	return nil
 }
 
 func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *RetPol, drp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
@@ -592,6 +593,10 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, sr
 		var totalpoints int64
 		totalpoints = 0
 		log.Debugf("Detected %d measurements on %s|%s", len(srp.Measurements), sdb, srp.Name)
+		//--------
+		var readErrors uint64
+		var writeErrors uint64
+		//--------
 		for m, sch := range srp.Measurements {
 			m := m
 			sch := sch
@@ -601,23 +606,30 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, sr
 				log.Tracef("Processing measurement %s with schema #%+v", m, sch)
 				log.Debugf("processing Database %s Measurement %s from %d to %d", sdb, m, startsec, endsec)
 				getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
-				batchpoints, np, err := ReadDB(src.cli, sdb, srp.Name, ddb, drp.Name, getvalues, sch.Fields)
-				if err != nil {
-					log.Errorf("error in read %s", err)
+				batchpoints, np, rerr := ReadDB(src.cli, sdb, srp.Name, ddb, drp.Name, getvalues, sch.Fields)
+				if rerr != nil {
+					atomic.AddUint64(&readErrors, 1)
+					log.Errorf("error in read %s", rerr)
 					return
 					//return err
 				}
 				atomic.AddInt64(&totalpoints, np)
 				//totalpoints += np
 				log.Debugf("processed %d points", np)
-				WriteDB(dst.cli, batchpoints)
+				werr := WriteDB(dst.cli, batchpoints)
+				if werr != nil {
+					atomic.AddUint64(&writeErrors, 1)
+					log.Errorf("error in write %s", werr)
+					return
+					//return err
+				}
 			})
 			//write datas of every hour
 		}
 		wp.StopWait()
 		chunkElapsed := time.Since(chs)
 		dbpoints += totalpoints
-		log.Infof("Processed Chunk [%d/%d](%d%%) from [%d][%s] to [%d][%s] (%d) Points Took [%s]", i+1, hLength, 100*(i+1)/hLength, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints, chunkElapsed.String())
+		log.Infof("Processed Chunk [%d/%d](%d%%) from [%d][%s] to [%d][%s] (%d) Points Took [%s] ERRORS[R:%d|W:%d]", i+1, hLength, 100*(i+1)/hLength, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints, chunkElapsed.String(), readErrors, writeErrors)
 
 	}
 	dbElapsed := time.Since(dbs)
