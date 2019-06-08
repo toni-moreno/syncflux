@@ -199,22 +199,17 @@ func init() {
 
 		}
 	}
-
-	/*if len(dataDir) == 0 {
-		dataDir = cfg.General.DataDir
-		log.Infof("Set DataDir %s from Command Line parameters", dataDir)
+	if cfg.General.RWMaxRetries == 0 {
+		cfg.General.RWMaxRetries = 5
 	}
-	if len(homeDir) == 0 {
-		homeDir = cfg.General.HomeDir
-		log.Infof("Set HomeDir %s from Command Line parameters", homeDir)
-	}*
-	//check if exist public dir in home
-	if _, err := os.Stat(filepath.Join(homeDir, "public")); err != nil {
-		log.Warnf("There is no public (www) directory on [%s] directory", homeDir)
-		if len(homeDir) == 0 {
-			homeDir = appdir
-		}
-	}*/
+
+	if cfg.General.RWRetryDelay == 0 {
+		cfg.General.RWRetryDelay = 10 * time.Second
+	}
+	if cfg.General.MaxPointsOnSingleWrite == 0 {
+		cfg.General.MaxPointsOnSingleWrite = 10000
+	}
+
 	//needed to create SQLDB when SQLite and debug log
 	config.SetLogger(log)
 	config.SetLogDir(logDir)
