@@ -513,7 +513,7 @@ func BpSplit(bp client.BatchPoints, splitnum int) []client.BatchPoints {
 		pointchunk := make([]*client.Point, splitnum)
 		init := i * splitnum
 		end := min((i+1)*splitnum, len)
-		log.Debugf("Splitting %s batchpoints into 50000  points chunks from %d to %d ", len, init, end)
+		log.Debugf("Splitting %d batchpoints into %d  points chunks from %d to %d ", len, splitnum, init, end)
 		copy(points[init:end], pointchunk)
 		newbp.AddPoints(pointchunk)
 

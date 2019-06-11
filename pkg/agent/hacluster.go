@@ -220,9 +220,13 @@ func (hac *HACluster) ReplicateData(schema []*InfluxSchDb, start time.Time, end 
 				rn.Name = db.NewDefRp
 			}
 			//log.Debugf("%s RP %s... SCHEMA %#+v.", db.Name, rp.Name, db)
-			err := SyncDBRP(hac.Master, hac.Slave, db.Name, db.NewName, rp, &rn, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
-			if err != nil {
-				log.Errorf("Data Replication error in DB [%s] RP [%s] | Error: %s", db, rn.Name, err)
+			report := SyncDBRP(hac.Master, hac.Slave, db.Name, db.NewName, rp, &rn, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
+			if report == nil {
+				log.Errorf("Data Replication error in DB [%s] RP [%s] ", db, rn.Name)
+			}
+			if len(report.BadChunks) > 0 {
+				r, w, t := report.RWErrors()
+				log.Errorf("Data Replication error in DB [%s] RP [%s] | Registered %d Read %d Write | %d Total Errors", db, r, w, t)
 			}
 		}
 	}
@@ -238,10 +242,13 @@ func (hac *HACluster) ReplicateDataFull(schema []*InfluxSchDb) error {
 			if rn.Def {
 				rn.Name = db.NewDefRp
 			}
-			err := SyncDBRP(hac.Master, hac.Slave, db.Name, db.NewName, rp, &rn, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
-			//err := SyncDBFull(hac.Master, hac.Slave, db.Name, rp, db, hac.ChunkDuration, hac.MaxRetentionInterval)
-			if err != nil {
-				log.Errorf("Data Replication error in DB [%s] RP [%s] | Error: %s", db, rn.Name, err)
+			report := SyncDBRP(hac.Master, hac.Slave, db.Name, db.NewName, rp, &rn, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
+			if report == nil {
+				log.Errorf("Data Replication error in DB [%s] RP [%s] ", db, rn.Name)
+			}
+			if len(report.BadChunks) > 0 {
+				r, w, t := report.RWErrors()
+				log.Errorf("Data Replication error in DB [%s] RP [%s] | Registered %d Read %d Write | %d Total Errors", db, r, w, t)
 			}
 		}
 	}

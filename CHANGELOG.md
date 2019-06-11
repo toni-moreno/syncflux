@@ -1,4 +1,11 @@
-# v 0.6.2 (2019-06-05)
+# v 0.6.3 (2019-06-07)
+
+## New features
+
+* added max-points-on-single-write to limit write queries
+* added 1  recovery level with bad chunks 
+
+# v 0.6.2 (2019-06-06)
 
 ## fixes
 

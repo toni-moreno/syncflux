@@ -21,9 +21,9 @@ type ChunkReport struct {
 	TimeTaken       time.Duration
 }
 
-func (cr *ChunkReport) Log() {
-	percent := 100 * (cr.Num + 1) / cr.Total
-	log.Infof("Processed Chunk [%d/%d](%d%%) from [%d][%s] to [%d][%s] (%d) Points Took [%s] ERRORS[R:%d|W:%d]",
+func (cr *ChunkReport) format() string {
+	percent := 100 * cr.Num / cr.Total
+	return fmt.Sprintf("[%d/%d](%d%%) from [%d][%s] to [%d][%s] (%d) Points Took [%s] ERRORS[R:%d|W:%d]",
 		cr.Num,
 		cr.Total,
 		percent,
@@ -35,6 +35,21 @@ func (cr *ChunkReport) Log() {
 		cr.TimeTaken.String(),
 		cr.ReadErrors,
 		cr.WriteErrors)
+}
+
+func (cr *ChunkReport) Log(prefix string) {
+
+	log.Infof("%s %s", prefix, cr.format())
+}
+
+func (cr *ChunkReport) Warn(prefix string) {
+
+	log.Warnf("%s %s", prefix, cr.format())
+}
+
+func (cr *ChunkReport) Error(prefix string) {
+
+	log.Warnf("%s %s", prefix, cr.format())
 }
 
 type SyncReport struct {
@@ -52,9 +67,10 @@ type SyncReport struct {
 	BadChunks    []*ChunkReport
 }
 
-func (sr *SyncReport) Log() {
+func (sr *SyncReport) Log(prefix string) {
 
-	log.Printf("Processed DB data from %s[%s|%s] to %s[%s|%s] has done  #Points (%d)  Took [%s] ERRORS [%d]!\n",
+	log.Printf("%s data from %s[%s|%s] to %s[%s|%s] has done  #Points (%d)  Took [%s] ERRORS [%d]!\n",
+		prefix,
 		sr.SrcSrv,
 		sr.SrcDB,
 		sr.SrcRP,
@@ -66,12 +82,22 @@ func (sr *SyncReport) Log() {
 		len(sr.BadChunks))
 }
 
-func Sync(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *RetPol, drp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) (*SyncReport, error) {
+func (sr *SyncReport) RWErrors() (uint64, uint64, uint64) {
+	var readErrors, writeErrors uint64
+	for _, b := range sr.BadChunks {
+		readErrors += b.ReadErrors
+		writeErrors += b.WriteErrors
+
+	}
+	return readErrors, writeErrors, readErrors + writeErrors
+}
+
+func Sync(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *RetPol, drp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) *SyncReport {
 
 	if dbschema == nil {
 		err := fmt.Errorf("DBSChema for DB %s is null", sdb)
 		log.Errorf("%s", err.Error())
-		return nil, err
+		return nil
 	}
 
 	Report := &SyncReport{
@@ -169,26 +195,38 @@ func Sync(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *R
 			TimeTaken:       chunkElapsed,
 		}
 
-		chrep.Log()
+		chrep.Log("Processed Chunk")
 		chuckReport = append(chuckReport, chrep)
 		if readErrors+writeErrors > 0 {
 			badChunkReport = append(badChunkReport, chrep)
 		}
-		//log.Infof("Processed Chunk [%d/%d](%d%%) from [%d][%s] to [%d][%s] (%d) Points Took [%s] ERRORS[R:%d|W:%d]",i+1, hLength, 100*(i+1)/hLength, startsec, time.Unix(startsec, 0).String(), endsec, time.Unix(endsec, 0).String(), totalpoints, chunkElapsed.String(), readErrors, writeErrors)
 
 	}
+
 	Report.TotalElapsed = time.Since(dbs)
 	Report.TotalPoints = dbpoints
 	Report.ChunkReport = chuckReport
 	Report.BadChunks = badChunkReport
-	Report.Log()
-	//log.Printf("Processed DB data from %s[%s|%s] to %s[%s|%s] has done  #Points (%d)  Took [%s] !\n", src.cfg.Name, sdb, srp.Name, dst.cfg.Name, ddb, drp.Name, dbpoints, dbElapsed.String())
+	Report.Log("Processed DB")
 
-	return Report, nil
+	return Report
 }
 
-func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *RetPol, drp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) error {
+func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *RetPol, drp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) *SyncReport {
 
-	_, err := Sync(src, dst, sdb, ddb, srp, drp, sEpoch, eEpoch, dbschema, chunk, maxret)
-	return err
+	report := Sync(src, dst, sdb, ddb, srp, drp, sEpoch, eEpoch, dbschema, chunk, maxret)
+	if len(report.BadChunks) > 0 {
+		log.Warnf("Initializing Recovery for %d chunks", len(report.BadChunks))
+		newBadChunks := make([]*ChunkReport, 0)
+		for _, bc := range report.BadChunks {
+			bc.Warn("Recovery for Bad Chunk")
+			start := time.Unix(bc.TimeStart, 0)
+			end := time.Unix(bc.TimeEnd, 0)
+
+			recoveryrep := Sync(src, dst, sdb, ddb, srp, drp, start, end, dbschema, chunk/10, maxret)
+			newBadChunks = append(newBadChunks, recoveryrep.BadChunks...)
+		}
+		report.BadChunks = newBadChunks
+	}
+	return report
 }
