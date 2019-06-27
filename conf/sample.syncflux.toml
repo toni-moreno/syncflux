@@ -124,10 +124,10 @@
 
  num-workers = 4
 
-# syncflux splits  all chunk data  to write into multiple writes of max-points-in-single-write 
+# syncflux splits  all chunk data  to write into multiple writes of max-points-on-single-write 
 # enables limitation on HTTP BODY REQUEST, avoiding errors like "Request Entity Too Large"
 
- max-points-in-single-write = 20000
+ max-points-on-single-write = 20000
 
  # ---- HTTP API SECTION (Only valid on hamonitor action)
 # Enables an HTTP API endpoint to check the cluster health

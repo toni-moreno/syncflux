@@ -514,9 +514,8 @@ func BpSplit(bp client.BatchPoints, splitnum int) []client.BatchPoints {
 		init := i * splitnum
 		end := min((i+1)*splitnum, len)
 		log.Debugf("Splitting %d batchpoints into %d  points chunks from %d to %d ", len, splitnum, init, end)
-		copy(points[init:end], pointchunk)
+		copy(pointchunk, points[init:end])
 		newbp.AddPoints(pointchunk)
-
 		ret = append(ret, newbp)
 
 	}
@@ -529,7 +528,8 @@ func WriteDB(c client.Client, bp client.BatchPoints) error {
 	RWRetryDelay := MainConfig.General.RWRetryDelay
 	MaxPointsOnSingleWrite := MainConfig.General.MaxPointsOnSingleWrite
 
-	//spliting writtes max of 50k points
+	//spliting writtes max of MaxPointsOnSingleWrite points
+	log.Debugf("MaxPointsOnSingleWrite [%d] ", MaxPointsOnSingleWrite)
 	sbp := BpSplit(bp, MaxPointsOnSingleWrite)
 
 	for k, b := range sbp {
