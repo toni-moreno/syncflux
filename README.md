@@ -220,6 +220,21 @@ ___Limitations___
 
 - Only the default RP can be renamed
 
+___Important Notes___
+
+When copying big databases, there is a few things you shoult take care, to ensure data is corretly copied.
+
+Syncflux tool copy data by doing "select * from XXXXX where time > [INIT_CHUNK] AND time > [END_CHUNK]" for each one of the existing measurements in the choosen database, It does [num queries concurrently](https://github.com/toni-moreno/syncflux/blob/master/conf/sample.syncflux.toml#L125) Depending on the measurement cardinality these queries could take long time  (be carefull with timeouts)  and also need for resources (memory mainly ) in both databases , but also in for the syncflux process itself.
+
+We recomends increase/disable all query timeouts:
+
+* [InfluxDB query-timeout=0](https://docs.influxdata.com/influxdb/v1.7/troubleshooting/query_management/#query-timeout)
+* [Syncflux  InfluxDB Section timeouts](https://github.com/toni-moreno/syncflux/blob/master/conf/sample.syncflux.toml#L152)
+* Smallest chunk sizes (1h, 30m, 10m)  will spend less memory but will spend more time to finish the complete copy
+* Run syncflux tool process ouside the influxdb servers.
+
+
+
 ___Examples___
 
 *Example 1*: Copy schema from Influx01 to Influx02
