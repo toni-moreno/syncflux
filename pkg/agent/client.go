@@ -87,7 +87,7 @@ func CreateDB(con client.Client, db string, rp *RetPol) error {
 		return nil
 	}
 
-	cmd := "CREATE DATABASE " + db + " WITH DURATION " + rp.Duration.String() + " REPLICATION " + strconv.FormatInt(rp.NReplicas, 10) + " SHARD DURATION " + rp.ShardGroupDuration.String() + " NAME " + "\"" + rp.Name + "\""
+	cmd := "CREATE DATABASE \"" + db + "\" WITH DURATION " + rp.Duration.String() + " REPLICATION " + strconv.FormatInt(rp.NReplicas, 10) + " SHARD DURATION " + rp.ShardGroupDuration.String() + " NAME " + "\"" + rp.Name + "\""
 
 	q := client.Query{
 		Command: cmd,
@@ -109,7 +109,7 @@ func CreateDB(con client.Client, db string, rp *RetPol) error {
 
 func CreateRP(con client.Client, db string, rp *RetPol) error {
 
-	cmd := "CREATE RETENTION POLICY \"" + rp.Name + "\" ON " + db + " DURATION " + rp.Duration.String() + " REPLICATION " + strconv.FormatInt(rp.NReplicas, 10) + " SHARD DURATION " + rp.ShardGroupDuration.String()
+	cmd := "CREATE RETENTION POLICY \"" + rp.Name + "\" ON \"" + db + "\" DURATION " + rp.Duration.String() + " REPLICATION " + strconv.FormatInt(rp.NReplicas, 10) + " SHARD DURATION " + rp.ShardGroupDuration.String()
 	if rp.Def {
 		cmd += " DEFAULT"
 	}
@@ -134,7 +134,7 @@ func CreateRP(con client.Client, db string, rp *RetPol) error {
 
 func SetDefaultRP(con client.Client, db string, rp *RetPol) error {
 
-	cmd := "ALTER RETENTION POLICY \"" + rp.Name + "\" ON " + db + " DEFAULT"
+	cmd := "ALTER RETENTION POLICY \"" + rp.Name + "\" ON \"" + db + "\" DEFAULT"
 
 	log.Debugf("Influx QUERY: %s", cmd)
 	q := client.Query{
@@ -236,7 +236,7 @@ func GetFields(c client.Client, sdb string, meas string, rp string) map[string]*
 
 	fields := make(map[string]*FieldSch)
 
-	cmd := "show field keys from " + meas
+	cmd := "show field keys from \"" + meas + "\""
 	//get measurements from database
 	q := client.Query{
 		Command:         cmd,
@@ -551,3 +551,4 @@ func WriteDB(c client.Client, bp client.BatchPoints) error {
 	}
 	return nil
 }
+
