@@ -185,7 +185,7 @@ func GetDataBases(con client.Client) ([]string, error) {
 func GetRetentionPolicies(con client.Client, db string) ([]*RetPol, error) {
 	rparray := []*RetPol{}
 	q := client.Query{
-		Command:  "show retention policies on " + db,
+		Command:  "show retention policies on \"" + db + "\"",
 		Database: "",
 	}
 	response, err4 := con.Query(q)
@@ -551,4 +551,3 @@ func WriteDB(c client.Client, bp client.BatchPoints) error {
 	}
 	return nil
 }
-
