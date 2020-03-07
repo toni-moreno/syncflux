@@ -72,6 +72,7 @@ func (im *InfluxMonitor) InitPing() (client.Client, time.Duration, string, error
 	}
 
 	response, err4 := con.Query(q)
+	con.Close()
 	if err4 == nil && response.Error() == nil {
 		log.Tracef("SHOW DATABASES On InitPint: %+v", response.Results)
 		im.lastcli = con
