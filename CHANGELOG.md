@@ -1,3 +1,10 @@
+# v 0.6.6 (2020-08-19)
+
+## fixes
+
+* fix #26,#31 (thanks to @maxadamo )
+
+
 # v 0.6.5 (2019-08-19)
 
 ## fixes
