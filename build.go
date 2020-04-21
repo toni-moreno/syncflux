@@ -43,8 +43,8 @@ func main() {
 
 	ensureGoPath()
 	//readVersionFromPackageJson()
-	readVersionFromChangelog()
-
+	//readVersionFromChangelog()
+	readVersionFromGit()
 	log.Printf("Version: %s, Linux Version: %s, Package Iteration: %s\n", version, linuxPackageVersion, linuxPackageIteration)
 
 	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
@@ -151,6 +151,26 @@ func readVersionFromPackageJson() {
 
 func readVersionFromChangelog() {
 	cmd := "grep ' *v *[0-9]*\\.[0-9]*\\.[0-9]' CHANGELOG.md | sed 's/# v *\\([0-9]*\\.[0-9]*\\.[0-9]\\) .*/\\1/g'| head -1"
+	out, err := exec.Command("bash", "-c", cmd).Output()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	linuxPackageVersion = strings.TrimSpace(string(out))
+	version = linuxPackageVersion
+	linuxPackageIteration = ""
+
+	// handle pre version stuff (deb / rpm does not support semver)
+	parts := strings.Split(version, "-")
+
+	if len(parts) > 1 {
+		linuxPackageVersion = parts[0]
+		linuxPackageIteration = parts[1]
+	}
+}
+
+func readVersionFromGit() {
+	cmd := "git describe --abbrev=0 --tag"
 	out, err := exec.Command("bash", "-c", cmd).Output()
 	if err != nil {
 		log.Fatal(err)
@@ -429,7 +449,7 @@ func setBuildEnv() {
 }
 
 func getGitSha() string {
-	v, err := runError("git", "describe", "--always", "--tags")
+	v, err := runError("git", "rev-parse", "--short", "HEAD")
 	if err != nil {
 		return "unknown-dev"
 	}

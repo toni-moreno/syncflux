@@ -56,6 +56,16 @@ cp conf/sample.syncflux.toml conf/syncflux.toml
 ./bin/syncflux [options]
 ```
 
+### Creating  and running docker image
+
+
+```bash
+make -f Makefile.docker
+docker run tonimoreno/syncflux:latest -version
+docker run  tonimoreno/syncflux:latest -h
+docker run  -p 4090:4090 -v /mylocal/conf:/opt/syncflux/conf -v /mylocal/log:/opt/syncflux/log tonimoreno/syncflux:latest [options]
+```
+
 
 ### Recompile backend on source change (only for developers)
 
