@@ -76,7 +76,7 @@
 # schema: database and retention policies will be recreated on the slave database
 # data: data for all retention policies will be replicated 
 #      be carefull: this full data copy could take hours,days.
-# all:  will replicate first the schema and them the full data 
+# both:  will replicate first the schema and them the full data 
 
  initial-replication = "none"
 
