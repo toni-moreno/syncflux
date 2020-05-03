@@ -1,4 +1,16 @@
-# v 0.6.6 (2020-08-19)
+# v 0.6.7 (2020-05-03)
+
+## New features
+
+* Adds `-logmode` option (default console if not set). Related to https://github.com/toni-moreno/influxdb-srelay/issues/26 issue
+* Updated base libraries
+* Migrated dependancy tool from dep to gomodules
+
+## fixes
+
+* fix #33
+
+# v 0.6.6 (2020-04-21)
 
 ## fixes
 
@@ -10,7 +22,6 @@
 ## fixes
 
 * fix #22
-
 
 # v 0.6.4 (2019-06-27)
 

@@ -30,6 +30,7 @@ var (
 	//homeDir    string
 	pidFile string
 	logDir  = filepath.Join(appdir, "log")
+	logMode = "console"
 	confDir = filepath.Join(appdir, "conf")
 	//dataDir    = confDir
 	configFile = filepath.Join(confDir, "syncflux.toml")
@@ -98,7 +99,8 @@ func flags() *flag.FlagSet {
 
 	//--------------------------------------------------------------
 	f.StringVar(&configFile, "config", configFile, "config file")
-	f.StringVar(&logDir, "logs", logDir, "log directory")
+	f.StringVar(&logMode, "logmode", logDir, "log mode [console/file] default console")
+	f.StringVar(&logDir, "logs", logDir, "log directory (only apply if action=hamonitor and logmode=file)")
 	//f.StringVar(&homeDir, "home", homeDir, "home directory")
 	//f.StringVar(&dataDir, "data", dataDir, "Data directory")
 	f.StringVar(&pidFile, "pidfile", pidFile, "path to pid file")
@@ -163,12 +165,17 @@ func init() {
 		log.Infof("Set logdir %s from Command Line parameter", logDir)
 	}
 
-	if action == "hamonitor" {
-		os.Mkdir(logDir, 0755)
-		//Log output
-		file, _ := os.OpenFile(logDir+"/syncflux.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-		log.Out = file
+	//default output to console
+	log.Out = os.Stdout
 
+	if action == "hamonitor" {
+		if logMode == "file" {
+			os.MkdirAll(logDir, 0755)
+			//Log output
+			file, _ := os.OpenFile(logDir+"/syncflux.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+			log.Out = file
+
+		}
 	}
 
 	if len(master) == 0 {
