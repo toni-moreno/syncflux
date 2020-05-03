@@ -4,7 +4,7 @@ RUN apk add --no-cache gcc g++ bash git
 
 WORKDIR $GOPATH/src/github.com/toni-moreno/syncflux
 
-COPY vendor vendor
+COPY go.mod go.sum ./
 
 COPY pkg pkg
 COPY .git .git
