@@ -81,13 +81,15 @@ will init a change autodetect webserver with angular-cli (ng serve) and also a a
 ### Execution parameters
 
 ```
+Usage of ./bin/syncflux:
    -action: hamonitor(default),copy,fullcopy,replicaschema
     -chunk: set RW chuck periods as in the data-chuck-duration config param
    -config: config file
        -db: set the db where to play
       -end: set the endtime do action (no valid in hamonitor) default now
      -full: copy full database or now()- max-retention-interval if greater retention policy
-     -logs: log directory
+  -logmode: log mode [console/file] default console
+     -logs: log directory (only apply if action=hamonitor and logmode=file)
    -master: choose master ID from all those in the config file where to get data (override the master-db parameter in the config file)
      -meas: set the meas where to play
     -newdb: set the db to work on
@@ -100,6 +102,7 @@ will init a change autodetect webserver with angular-cli (ng serve) and also a a
   -version: display the version
        -vv: set log level to Debug
       -vvv: set log level to Trace
+```
 
 ### Set config file
 
