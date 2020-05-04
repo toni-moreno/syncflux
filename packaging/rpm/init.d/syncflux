@@ -3,7 +3,7 @@
 # chkconfig: 2345 80 05
 # description: SyncFlux Agent
 # processname: syncflux
-# config: /etc/syncflux/config.toml
+# config: /etc/syncflux/syncflux.toml
 # pidfile: /var/run/syncflux.pid
 
 ### BEGIN INIT INFO
@@ -29,9 +29,8 @@ SYNCFLUX_HOME=/usr/share/syncflux
 CONF_DIR=/etc/syncflux
 WORK_DIR=$SYNCFLUX_HOME
 DATA_DIR=/var/lib/syncflux
-PLUGINS_DIR=/var/lib/syncflux/plugins
 LOG_DIR=/var/log/syncflux
-CONF_FILE=$CONF_DIR/config.toml
+CONF_FILE=$CONF_DIR/syncflux.toml
 MAX_OPEN_FILES=10000
 PID_FILE=/var/run/$NAME.pid
 DAEMON=/usr/sbin/$NAME

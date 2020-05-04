@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 
 # chkconfig: 2345 80 05
-# description: SynFlux agent
+# description: SyncFlux agent
 # processname: syncflux
 # config: /etc/syncflux/syncflux.toml
 # pidfile: /var/run/syncflux.pid
