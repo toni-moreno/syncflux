@@ -141,9 +141,9 @@ func Sync(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *R
 		wp := workerpool.New(MainConfig.General.NumWorkers)
 		defer wp.Stop()
 		chs := time.Now()
-		//sync from newer to older data
-		endsec := eEpoch.Unix() - (i * chunkSecond)
-		startsec := eEpoch.Unix() - ((i + 1) * chunkSecond)
+		//sync from older to newer data
+		startsec := eEpoch.Unix() - ((hLength - i) * chunkSecond)
+		endsec := eEpoch.Unix() - ((hLength - i - 1) * chunkSecond)
 		var totalpoints int64
 		totalpoints = 0
 		log.Debugf("Detected %d measurements on %s|%s", len(srp.Measurements), sdb, srp.Name)
