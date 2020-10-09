@@ -89,6 +89,7 @@ Usage of ./bin/syncflux:
    -action: hamonitor(default),copy,fullcopy,replicaschema
     -chunk: set RW chuck periods as in the data-chuck-duration config param
    -config: config file
+-copyorder: backward (most to least recent, default), forward (least to most recent)
        -db: set the db where to play
       -end: set the endtime do action (no valid in hamonitor) default now
      -full: copy full database or now()- max-retention-interval if greater retention policy

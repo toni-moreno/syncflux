@@ -210,7 +210,7 @@ func (hac *HACluster) ReplicateSchema(schema []*InfluxSchDb) error {
 	return nil
 }
 
-func (hac *HACluster) ReplicateData(schema []*InfluxSchDb, start time.Time, end time.Time) error {
+func (hac *HACluster) ReplicateData(schema []*InfluxSchDb, start time.Time, end time.Time, copyorder string) error {
 	for _, db := range schema {
 		for _, rp := range db.Rps {
 			log.Infof("Replicating Data from DB %s RP %s...", db.Name, rp.Name)
@@ -220,7 +220,7 @@ func (hac *HACluster) ReplicateData(schema []*InfluxSchDb, start time.Time, end 
 				rn.Name = db.NewDefRp
 			}
 			//log.Debugf("%s RP %s... SCHEMA %#+v.", db.Name, rp.Name, db)
-			report := SyncDBRP(hac.Master, hac.Slave, db.Name, db.NewName, rp, &rn, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
+			report := SyncDBRP(hac.Master, hac.Slave, db.Name, db.NewName, rp, &rn, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval, copyorder)
 			if report == nil {
 				log.Errorf("Data Replication error in DB [%s] RP [%s] ", db, rn.Name)
 			}
@@ -233,7 +233,7 @@ func (hac *HACluster) ReplicateData(schema []*InfluxSchDb, start time.Time, end 
 	return nil
 }
 
-func (hac *HACluster) ReplicateDataFull(schema []*InfluxSchDb) error {
+func (hac *HACluster) ReplicateDataFull(schema []*InfluxSchDb, copyorder string) error {
 	for _, db := range schema {
 		for _, rp := range db.Rps {
 			log.Infof("Replicating Data from DB %s RP %s....", db.Name, rp.Name)
@@ -242,7 +242,7 @@ func (hac *HACluster) ReplicateDataFull(schema []*InfluxSchDb) error {
 			if rn.Def {
 				rn.Name = db.NewDefRp
 			}
-			report := SyncDBRP(hac.Master, hac.Slave, db.Name, db.NewName, rp, &rn, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval)
+			report := SyncDBRP(hac.Master, hac.Slave, db.Name, db.NewName, rp, &rn, start, end, db, hac.ChunkDuration, hac.MaxRetentionInterval, copyorder)
 			if report == nil {
 				log.Errorf("Data Replication error in DB [%s] RP [%s] ", db, rn.Name)
 			}
@@ -256,14 +256,14 @@ func (hac *HACluster) ReplicateDataFull(schema []*InfluxSchDb) error {
 }
 
 // ScltartMonitor Main GoRutine method to begin snmp data collecting
-func (hac *HACluster) SuperVisor(wg *sync.WaitGroup) {
+func (hac *HACluster) SuperVisor(wg *sync.WaitGroup, copyorder string) {
 	wg.Add(1)
-	go hac.startSupervisorGo(wg)
+	go hac.startSupervisorGo(wg, copyorder)
 }
 
 // OK -> CHECK_SLAVE_DOWN -> RECOVERING -> OK
 
-func (hac *HACluster) checkCluster() {
+func (hac *HACluster) checkCluster(copyorder string) {
 
 	//check Master
 
@@ -330,7 +330,7 @@ func (hac *HACluster) checkCluster() {
 		log.Infof("HACLUSTER: INIT REFRESH SCHEMA")
 		hac.Schema, _ = hac.GetSchema("", "", "")
 		log.Infof("HACLUSTER: INIT REPLICATION DATA PROCESS")
-		hac.ReplicateData(hac.Schema, startTime, endTime)
+		hac.ReplicateData(hac.Schema, startTime, endTime, copyorder)
 		elapsed := time.Since(start)
 		log.Infof("HACLUSTER: DATA SYNCRONIZATION Took %s", elapsed.String())
 
@@ -369,7 +369,7 @@ func (hac *HACluster) checkCluster() {
 
 }
 
-func (hac *HACluster) startSupervisorGo(wg *sync.WaitGroup) {
+func (hac *HACluster) startSupervisorGo(wg *sync.WaitGroup, copyorder string) {
 	defer wg.Done()
 
 	log.Infof("Beginning Supervision process  process each %s ", hac.CheckInterval.String())
@@ -378,7 +378,7 @@ func (hac *HACluster) startSupervisorGo(wg *sync.WaitGroup) {
 
 	t := time.NewTicker(hac.CheckInterval)
 	for {
-		hac.checkCluster()
+		hac.checkCluster(copyorder)
 	LOOP:
 		for {
 			select {

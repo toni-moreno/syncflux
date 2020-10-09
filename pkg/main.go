@@ -47,6 +47,7 @@ var (
 	starttime    = time.Now().Add(-3600 * 24)
 	endtimestr   string
 	endtime      = time.Now()
+	copyorder    = "reverse"
 	fulltime     bool
 	chunktimestr string
 	//log level
@@ -89,6 +90,7 @@ func flags() *flag.FlagSet {
 	f.StringVar(&chunktimestr, "chunk", chunktimestr, "set RW chuck periods as in the data-chuck-duration config param")
 	f.StringVar(&starttimestr, "start", starttimestr, "set the starttime to do action (no valid in hamonitor) default now-24h")
 	f.StringVar(&endtimestr, "end", endtimestr, "set the endtime do action (no valid in hamonitor) default now")
+	f.StringVar(&copyorder, "copyorder", copyorder, "backward (most to least recent, default), forward (least to most recent)")
 	f.BoolVar(&fulltime, "full", fulltime, "copy full database or now()- max-retention-interval if greater retention policy")
 	//  -v = Info
 	//  -vv =  debug
@@ -292,15 +294,15 @@ func main() {
 
 	switch action {
 	case "hamonitor":
-		agent.HAMonitorStart(master, slave)
+		agent.HAMonitorStart(master, slave, copyorder)
 		webui.WebServer("", httpPort, &agent.MainConfig.HTTP, agent.MainConfig.General.InstanceID)
 	case "copy":
-		agent.Copy(master, slave, actiondb, newdb, actionrp, newrp, actionmeas, starttime, endtime, fulltime)
+		agent.Copy(master, slave, actiondb, newdb, actionrp, newrp, actionmeas, starttime, endtime, fulltime, copyorder)
 	case "move":
 	case "replicaschema":
 		agent.ReplSch(master, slave, actiondb, newdb, actionrp, newrp, actionmeas)
 	case "fullcopy":
-		agent.SchCopy(master, slave, actiondb, newdb, actionrp, newrp, actionmeas, starttime, endtime, fulltime)
+		agent.SchCopy(master, slave, actiondb, newdb, actionrp, newrp, actionmeas, starttime, endtime, fulltime, copyorder)
 	default:
 		fmt.Printf("Unknown action: %s", action)
 	}
