@@ -443,6 +443,12 @@ func ReadDB(c client.Client, sdb, srp, ddb, drp, cmd string, fieldmap map[string
 										log.Errorf("Error on parse field %s data %#+v %T :%s", ser.Columns[i], val, vt, err)
 									}
 									field[ser.Columns[i]] = conv
+								case "unsigned":
+									conv, err := strconv.ParseUint(vt.String(), 10, 64)
+									if err != nil {
+										log.Errorf("Error on parse field %s data %#+v %T :%s", ser.Columns[i], val, vt, err)
+									}
+									field[ser.Columns[i]] = conv
 								case "boolean":
 									fallthrough
 								case "string":
