@@ -1,3 +1,9 @@
+# v 0.6.8 (2020-10-11)
+
+## New features
+
+* Support for uint64 columns (#44)
+
 # v 0.6.7 (2020-05-03)
 
 ## New features
