@@ -173,7 +173,7 @@ func ReplSch(master string, slave string, dbs string, newdb string, rps string, 
 
 }
 
-func SchCopy(master string, slave string, dbs string, newdb string, rps string, newrp string, meas string, start time.Time, end time.Time, full bool) {
+func SchCopy(master string, slave string, dbs string, newdb string, rps string, newrp string, meas string, start time.Time, end time.Time, full bool, copyorder string) {
 
 	Cluster = initCluster(master, slave)
 
@@ -198,16 +198,16 @@ func SchCopy(master string, slave string, dbs string, newdb string, rps string, 
 	s := time.Now()
 	Cluster.ReplicateSchema(schema)
 	if full {
-		Cluster.ReplicateDataFull(schema)
+		Cluster.ReplicateDataFull(schema, copyorder)
 	} else {
-		Cluster.ReplicateData(schema, start, end)
+		Cluster.ReplicateData(schema, start, end, copyorder)
 	}
 	elapsed := time.Since(s)
 	log.Infof("Copy take: %s", elapsed.String())
 
 }
 
-func Copy(master string, slave string, dbs string, newdb string, rps string, newrp string, meas string, start time.Time, end time.Time, full bool) {
+func Copy(master string, slave string, dbs string, newdb string, rps string, newrp string, meas string, start time.Time, end time.Time, full bool, copyorder string) {
 
 	Cluster = initCluster(master, slave)
 
@@ -230,16 +230,16 @@ func Copy(master string, slave string, dbs string, newdb string, rps string, new
 
 	s := time.Now()
 	if full {
-		Cluster.ReplicateDataFull(schema)
+		Cluster.ReplicateDataFull(schema, copyorder)
 	} else {
-		Cluster.ReplicateData(schema, start, end)
+		Cluster.ReplicateData(schema, start, end, copyorder)
 	}
 	elapsed := time.Since(s)
 	log.Infof("Copy take: %s", elapsed.String())
 
 }
 
-func HAMonitorStart(master string, slave string) {
+func HAMonitorStart(master string, slave string, copyorder string) {
 
 	Cluster = initCluster(master, slave)
 
@@ -251,12 +251,12 @@ func HAMonitorStart(master string, slave string) {
 		Cluster.ReplicateSchema(schema)
 	case "data":
 		log.Info("Replicating DATA Schema from Master to Slave")
-		Cluster.ReplicateDataFull(schema)
+		Cluster.ReplicateDataFull(schema, copyorder)
 	case "both":
 		log.Info("Replicating DB Schema from Master to Slave")
 		Cluster.ReplicateSchema(schema)
 		log.Info("Replicating DATA Schema from Master to Slave")
-		Cluster.ReplicateDataFull(schema)
+		Cluster.ReplicateDataFull(schema, copyorder)
 	case "none":
 		log.Info("No replication done")
 	default:
@@ -266,7 +266,7 @@ func HAMonitorStart(master string, slave string) {
 	Cluster.Master.StartMonitor(&processWg)
 	Cluster.Slave.StartMonitor(&processWg)
 	time.Sleep(MainConfig.General.CheckInterval)
-	Cluster.SuperVisor(&processWg)
+	Cluster.SuperVisor(&processWg, copyorder)
 
 }
 

@@ -92,7 +92,7 @@ func (sr *SyncReport) RWErrors() (uint64, uint64, uint64) {
 	return readErrors, writeErrors, readErrors + writeErrors
 }
 
-func Sync(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *RetPol, drp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) *SyncReport {
+func Sync(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *RetPol, drp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration, copyorder string) *SyncReport {
 
 	if dbschema == nil {
 		err := fmt.Errorf("DBSChema for DB %s is null", sdb)
@@ -135,15 +135,24 @@ func Sync(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *R
 
 	var i int64
 	var dbpoints int64
+	var startsec, endsec int64
 	dbs := time.Now()
 
 	for i = 0; i < hLength; i++ {
 		wp := workerpool.New(MainConfig.General.NumWorkers)
 		defer wp.Stop()
 		chs := time.Now()
-		//sync from newer to older data
-		endsec := eEpoch.Unix() - (i * chunkSecond)
-		startsec := eEpoch.Unix() - ((i + 1) * chunkSecond)
+
+		if copyorder == "forward" {
+			//sync from older to newer data
+			startsec = eEpoch.Unix() - ((hLength - i) * chunkSecond)
+			endsec = eEpoch.Unix() - ((hLength - i - 1) * chunkSecond)
+		} else {
+			//sync from newer to older data
+			endsec = eEpoch.Unix() - (i * chunkSecond)
+			startsec = eEpoch.Unix() - ((i + 1) * chunkSecond)
+		}
+
 		var totalpoints int64
 		totalpoints = 0
 		log.Debugf("Detected %d measurements on %s|%s", len(srp.Measurements), sdb, srp.Name)
@@ -212,9 +221,9 @@ func Sync(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *R
 	return Report
 }
 
-func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *RetPol, drp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration) *SyncReport {
+func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *RetPol, drp *RetPol, sEpoch time.Time, eEpoch time.Time, dbschema *InfluxSchDb, chunk time.Duration, maxret time.Duration, copyorder string) *SyncReport {
 
-	report := Sync(src, dst, sdb, ddb, srp, drp, sEpoch, eEpoch, dbschema, chunk, maxret)
+	report := Sync(src, dst, sdb, ddb, srp, drp, sEpoch, eEpoch, dbschema, chunk, maxret, copyorder)
 	if len(report.BadChunks) > 0 {
 		log.Warnf("Initializing Recovery for %d chunks", len(report.BadChunks))
 		newBadChunks := make([]*ChunkReport, 0)
@@ -223,7 +232,7 @@ func SyncDBRP(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, sr
 			start := time.Unix(bc.TimeStart, 0)
 			end := time.Unix(bc.TimeEnd, 0)
 
-			recoveryrep := Sync(src, dst, sdb, ddb, srp, drp, start, end, dbschema, chunk/10, maxret)
+			recoveryrep := Sync(src, dst, sdb, ddb, srp, drp, start, end, dbschema, chunk/10, maxret, copyorder)
 			newBadChunks = append(newBadChunks, recoveryrep.BadChunks...)
 		}
 		report.BadChunks = newBadChunks
