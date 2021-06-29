@@ -159,7 +159,7 @@ func Sync(src *InfluxMonitor, dst *InfluxMonitor, sdb string, ddb string, srp *R
 			wp.Submit(func() {
 				log.Tracef("Processing measurement %s with schema #%+v", m, sch)
 				log.Debugf("processing Database %s Measurement %s from %d to %d", sdb, m, startsec, endsec)
-				getvalues := fmt.Sprintf("select * from  \"%v\" where time  > %vs and time < %vs group by *", m, startsec, endsec)
+				getvalues := fmt.Sprintf("select * from  \"%v\" where time >= %vs and time < %vs group by *", m, startsec, endsec)
 				batchpoints, np, rerr := ReadDB(src.cli, sdb, srp.Name, ddb, drp.Name, getvalues, sch.Fields)
 				if rerr != nil {
 					atomic.AddUint64(&readErrors, 1)
